@@ -13,6 +13,20 @@ from sklearn.linear_model import LinearRegression
 from dotenv import load_dotenv
 
 
+def ensure_directory(path):
+    """
+    Ensures that a directory exists and is actually a directory.
+    If a file exists with that name, removes it first.
+    If a directory exists, does nothing.
+    """
+    if os.path.exists(path):
+        if os.path.isfile(path):
+            os.remove(path)
+        elif os.path.isdir(path):
+            return  # Directory already exists, nothing to do
+    os.makedirs(path, exist_ok=True)
+
+
 class PreprocessingPipeline:
     def process_etp(self, start_date=None, end_date=None):
         """Process evapotranspiration (ETP) using Hargreaves-Samani method."""
@@ -237,7 +251,7 @@ class PreprocessingPipeline:
 
     def save_raster(self, data, output_path, date_str):
         """Saves interpolated data as GeoTIFF."""
-        os.makedirs(output_path, exist_ok=True)
+        ensure_directory(output_path)
         
         output_file = os.path.join(output_path, f"{date_str}.tif")
         

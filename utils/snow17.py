@@ -7,6 +7,20 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 
+def ensure_directory(path):
+    """
+    Ensures that a directory exists and is actually a directory.
+    If a file exists with that name, removes it first.
+    If a directory exists, does nothing.
+    """
+    if os.path.exists(path):
+        if os.path.isfile(path):
+            os.remove(path)
+        elif os.path.isdir(path):
+            return  # Directory already exists, nothing to do
+    os.makedirs(path, exist_ok=True)
+
+
 def read_geotiff(path):
     with rasterio.open(path) as src:
         array = src.read(1).astype(np.float32)
@@ -320,8 +334,8 @@ def main():
     print(f"[SNOW17] Processing period: {start_date_str} to {end_date_str}")
     
     # Create output directory
-    os.makedirs(rainmelt_output_path, exist_ok=True)
-    print(f"[SNOW17] Output directory created: {rainmelt_output_path}")
+    ensure_directory(rainmelt_output_path)
+    print(f"[SNOW17] Output directory ready: {rainmelt_output_path}")
     
     # Read DEM and create parameters
     if not os.path.exists(dem_path):
