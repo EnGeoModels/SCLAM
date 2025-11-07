@@ -305,6 +305,7 @@ def main():
     rain_output_path = os.getenv('rain_output_path')
     tavg_output_path = os.getenv('tavg_output_path')
     rainmelt_output_path = os.getenv('rainmelt_output_path')
+    swe_output_path = os.getenv('swe_output_path')
     start_date_str = os.getenv('start_date')
     end_date_str = os.getenv('end_date')
     
@@ -314,6 +315,7 @@ def main():
         'rain_output_path': rain_output_path,
         'tavg_output_path': tavg_output_path,
         'rainmelt_output_path': rainmelt_output_path,
+        'swe_output_path': swe_output_path,
         'start_date': start_date_str,
         'end_date': end_date_str
     }
@@ -331,11 +333,15 @@ def main():
     print(f"[SNOW17] Rain input: {rain_output_path}")
     print(f"[SNOW17] Tavg input: {tavg_output_path}")
     print(f"[SNOW17] Rainmelt output: {rainmelt_output_path}")
+    print(f"[SNOW17] SWE output: {swe_output_path}")
     print(f"[SNOW17] Processing period: {start_date_str} to {end_date_str}")
     
-    # Create output directory
+    # Create output directories
     ensure_directory(rainmelt_output_path)
-    print(f"[SNOW17] Output directory ready: {rainmelt_output_path}")
+    ensure_directory(swe_output_path)
+    print(f"[SNOW17] Output directories ready")
+    print(f"  - Rainmelt: {rainmelt_output_path}")
+    print(f"  - SWE: {swe_output_path}")
     
     # Read DEM and create parameters
     if not os.path.exists(dem_path):
@@ -384,16 +390,29 @@ def main():
         x = create_input_layers(dem, prec, temp, current_date.strftime('%Y-%m-%d'), dem_params)
         results, ini_states = snow17_gridded(x, ini_states, dtt=dtt, dtp=dtp, hemisphere=hemisphere)
         
-        out_arr = np.where(np.isnan(dem), np.nan, results['E'])
+        # Save rainmelt (E: melt energy/runoff)
+        rainmelt_arr = np.where(np.isnan(dem), np.nan, results['E'])
         date_str = current_date.strftime('%Y%m%d')
-        out_file = os.path.join(rainmelt_output_path, f"rainmelt.{date_str}.tif")
+        rainmelt_file = os.path.join(rainmelt_output_path, f"rainmelt.{date_str}.tif")
+        write_geotiff(rainmelt_file, rainmelt_arr, profile)
         
-        write_geotiff(out_file, out_arr, profile)
+        # Save SWE (Snow Water Equivalent)
+        swe_arr = np.where(np.isnan(dem), np.nan, results['SWE'])
+        swe_file = os.path.join(swe_output_path, f"swe.{date_str}.tif")
+        write_geotiff(swe_file, swe_arr, profile)
+        
         processed_count += 1
-        print(f"[SNOW17] Saved: {os.path.basename(out_file)}")
+        print(f"[SNOW17] Saved: {os.path.basename(rainmelt_file)}, {os.path.basename(swe_file)}")
     
     print(f"[SNOW17] Done. Processed {processed_count} days.")
-    return rainmelt_output_path
+    print(f"[SNOW17] Outputs saved to:")
+    print(f"  - Rainmelt: {rainmelt_output_path}")
+    print(f"  - SWE: {swe_output_path}")
+    
+    return {
+        'rainmelt_path': rainmelt_output_path,
+        'swe_path': swe_output_path
+    }
 
 
 if __name__ == '__main__':
