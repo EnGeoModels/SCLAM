@@ -47,6 +47,8 @@ def load_config():
     
     config = {
         'CREST_output_path': os.getenv('CREST_output_path'),
+        'rainmelt_output_path': os.getenv('rainmelt_output_path'),
+        'swe_output_path': os.getenv('swe_output_path'),
         'static_data_path': os.getenv('static_data_path'),
         'RF_model_path': os.getenv('RF_model_path'),
         'landslide_output_path': os.getenv('landslide_output_path'),
@@ -119,19 +121,41 @@ def run_rf_model(date, rf_model, sta_layers, file_maps, profile):
         RF probability raster or None if data missing
     """
     dyn_layers = {}
-    for var in file_maps:
+    required_vars = ['BFExcess', 'infiltration', 'sm']
+    
+    for var in required_vars:
         path = file_maps[var].get(date)
         if not path:
             return None
         with rasterio.open(path) as src:
-            data = src.read(1)
+            data = src.read(1).astype(np.float32)
             if var == 'BFExcess':
                 data *= 24
             dyn_layers[var] = data
     
+    # Try to load rainmelt (optional, for RF features)
+    rainmelt_data = None
+    if 'rainmelt' in file_maps and file_maps['rainmelt']:
+        path = file_maps['rainmelt'].get(date)
+        if path:
+            try:
+                with rasterio.open(path) as src:
+                    rainmelt_data = src.read(1).astype(np.float32)
+            except Exception:
+                pass
+    
+    # If no rainmelt available, use sm as proxy
+    if rainmelt_data is None:
+        rainmelt_data = dyn_layers['sm'].copy()
+    
     ordered_vars = ["cumflow", "Ks", "slopes", "z", "BFExcess", "infiltration", "rainmelt", "sm"]
     
-    stack = np.stack([sta_layers[v] if v in sta_layers else dyn_layers[v] for v in ordered_vars], axis=-1)
+    stack = np.stack([
+        sta_layers[v] if v in sta_layers else 
+        dyn_layers.get(v, rainmelt_data if v == 'rainmelt' else dyn_layers['sm'])
+        for v in ordered_vars
+    ], axis=-1)
+    
     flat = stack.reshape(-1, len(ordered_vars))
     mask = ~np.any(np.isnan(flat), axis=1)
     
@@ -188,17 +212,17 @@ def stability_model(x, qa, qe, sm, swe,
         swe_flag = (swe > 0).astype(int)
     else:
         swe_flag = np.zeros_like(swe, dtype=int)
-    
+
     A = h * DS * G * np.sin(2 * slope) / 2
-    
+
     D_fin = np.tan(slope) / (1 - (water_table / h) * (DW / DS))
     SF_mean = tanphi_mean / D_fin + C_soil / A
     SF_sd = np.sqrt((A ** 2) * (tanphi_sd ** 2) + (D_fin ** 2) * (C_soil_sd ** 2 + C_lulc_sd ** 2)) / (D_fin * A)
-    
+
     PoF = norm.cdf(1, loc=SF_mean, scale=SF_sd)
     PoF[unc_unstable > 0.5] = 0
     PoF[swe_flag == 1] = 0
-    
+
     return PoF
 
 
@@ -282,9 +306,9 @@ def main():
     
     # Load soil and land use data
     print(f"\n[SOIL/LULC] Loading classification data...")
-    soil_path = os.path.join(config['static_data_path'], 'Garona_soil_5m.tif')
-    hmtu_path = os.path.join(config['static_data_path'], 'Garona_landuseCREAF_5m.tif')
-    
+    soil_path = os.path.join(config['static_data_path'], 'soil_grid_30m.tif')
+    hmtu_path = os.path.join(config['static_data_path'], 'hmtu_grid_30m.tif')
+
     if not os.path.exists(soil_path):
         raise FileNotFoundError(f"Soil file not found: {soil_path}")
     if not os.path.exists(hmtu_path):
@@ -349,7 +373,7 @@ def main():
     
     # Load other static grids
     slope_path = os.path.join(config['static_data_path'], 'slopes.tif')
-    unc_unstable_path = os.path.join(config['static_data_path'], 'unc_unstable_M_new.tif')
+    unc_unstable_path = os.path.join(config['static_data_path'], 'unc_unstable_M.tif')
     
     slope_array = reproject_to_match(slope_path, ref_profile)
     unc_unstable = reproject_to_match(unc_unstable_path, ref_profile)
@@ -358,6 +382,8 @@ def main():
     # Build file maps for dynamic inputs from CREST
     print(f"\n[CREST] Loading CREST output files...")
     crest_output = config['CREST_output_path']
+    rainmelt_output = config['rainmelt_output_path']
+    swe_output = config['swe_output_path']
     
     def build_file_map(var, folder):
         """Build dictionary mapping dates to file paths"""
@@ -370,25 +396,31 @@ def main():
                 file_map[date] = f
         return file_map
     
-    file_maps = {
-        'BFExcess': build_file_map('runoff', crest_output),  # or 'subrunoff' for baseflow
-        'infiltration': build_file_map('infiltration', crest_output),
-        'rainmelt': build_file_map('rainmelt', crest_output),
-        'sm': build_file_map('soilmoisture', crest_output)
-    }
-    
-    # Get common dates within range
-    if not all(file_maps.values()):
-        print(f"  ✗ Some CREST outputs missing!")
-        for var, fmap in file_maps.items():
-            print(f"    {var}: {len(fmap)} files")
-    
-    common_dates = sorted(set.intersection(*(set(m.keys()) for m in file_maps.values() if m)))
-    
-    # Filter by date range
+    # Get date bounds for filtering
     start_date_str = config['start_date'].replace('-', '')
     end_date_str = config['end_date'].replace('-', '')
-    common_dates = [d for d in common_dates if start_date_str <= d <= end_date_str]
+    
+    # Map all dynamic input variables
+    file_maps = {
+        'BFExcess': build_file_map('BFExcess', crest_output),
+        'infiltration': build_file_map('infiltration', crest_output),
+        'sm': build_file_map('sm', crest_output),
+        'rainmelt': build_file_map('rainmelt', rainmelt_output),
+        'swe': build_file_map('swe', swe_output)
+    }
+    
+    # Filter all file maps by date range [start_date, end_date]
+    for var in file_maps:
+        file_maps[var] = {
+            date: path for date, path in file_maps[var].items()
+            if start_date_str <= date <= end_date_str
+        }
+    
+    # Get common dates within range (only require BFExcess, infiltration, and sm)
+    required_vars = ['BFExcess', 'infiltration', 'sm']
+    common_dates = sorted(set.intersection(*(set(m.keys()) for m in [file_maps[v] for v in required_vars] if m)))
+    
+    print(f"  ✓ Date range filter applied: {start_date_str} to {end_date_str}")
     
     print(f"  ✓ Found {len(common_dates)} valid dates in range")
     
@@ -396,34 +428,41 @@ def main():
         raise RuntimeError("No valid dates found in CREST output within specified range")
     
     # Process each date
-    print(f"\n[PROCESSING] Starting landslide analysis for {len(common_dates)} dates...")
+    print(f"\n[PROCESSING] Exporting landslide analysis for {len(common_dates)} dates...")
     print(f"-" * 70)
     
-    stats = []
+    count_processed = 0
     
     for idx, date in enumerate(common_dates, 1):
         date_formatted = f"{date[0:4]}-{date[4:6]}-{date[6:8]}"
-        print(f"[{idx}/{len(common_dates)}] Processing {date_formatted}...", end=" ")
+        print(f"[{idx}/{len(common_dates)}] {date_formatted}...", end=" ")
         
         try:
             # Load dynamic data from CREST
             qa = reproject_to_match(file_maps['BFExcess'][date], ref_profile)
             qe = reproject_to_match(file_maps['infiltration'][date], ref_profile)
             sm = reproject_to_match(file_maps['sm'][date], ref_profile)
-            swe = np.zeros_like(sm)  # No SWE for now
+            
+            # Load SWE from SNOW17 if available
+            swe = np.zeros_like(sm)
+            if 'swe' in file_maps and file_maps['swe'] and date in file_maps['swe']:
+                try:
+                    swe = reproject_to_match(file_maps['swe'][date], ref_profile)
+                except Exception:
+                    pass  # Use zeros if SWE unavailable
             
             valid_mask = ~np.isnan(sm)
             
             # Run RF model
             rf_raster = run_rf_model(date, rf_model, sta_layers, file_maps, ref_profile)
             
-            # Run Physical model
+            # Run Physical model with SWE
             phys_raster = stability_model(
                 x, qa, qe, sm, swe,
                 slope_array, soil_depth, porosity, Ks,
                 tanphi_mean, tanphi_sd, C_soil_mean + Cr_lulc_mean,
                 C_soil_sd, C_lulc_sd, unc_unstable,
-                use_swe=False
+                use_swe=True  # Enable SWE effect
             )
             
             # Compute weighted average: (2*RF + 1*Physical) / 3
@@ -443,34 +482,18 @@ def main():
             save_raster(phys_raster, config['landslide_output_path'], f"PoF_InfiniteSlope_{date}.tif", ref_profile)
             save_raster(mean_raster, config['landslide_output_path'], f"PoF_Ensemble_{date}.tif", ref_profile)
             
-            # Calculate statistics
-            total_valid = np.sum(valid_mask)
-            unstable_rf = np.sum((rf_raster > 0.5) & valid_mask)
-            unstable_phys = np.sum((phys_raster > 0.5) & valid_mask)
-            unstable_mean = np.sum((mean_raster > 0.5) & valid_mask)
-            
-            percent_rf = (unstable_rf / total_valid) * 100 if total_valid > 0 else np.nan
-            percent_phys = (unstable_phys / total_valid) * 100 if total_valid > 0 else np.nan
-            percent_mean = (unstable_mean / total_valid) * 100 if total_valid > 0 else np.nan
-            
-            stats.append({
-                'date': date_formatted,
-                'PoF_RF_%': percent_rf,
-                'PoF_InfiniteSlope_%': percent_phys,
-                'PoF_Ensemble_%': percent_mean
-            })
-            
-            print(f"✓ RF={percent_rf:.1f}% | Phys={percent_phys:.1f}% | Ens={percent_mean:.1f}%")
+            count_processed += 1
+            print(f"✓")
         
         except Exception as e:
-            print(f"✗ Error: {e}")
+            print(f"✗ {e}")
             continue
     
     print(f"\n" + "="*70)
-    print(f"✓ LANDSLIDE MODEL COMPLETED SUCCESSFULLY")
-    print(f"  - Dates processed: {len(stats)}")
+    print(f"✓ LANDSLIDE MODEL COMPLETED")
+    print(f"  - Dates processed: {count_processed}/{len(common_dates)}")
     print(f"  - Output directory: {config['landslide_output_path']}")
-    print(f"  - Rasters generated: {len(stats) * 3} (RF, InfiniteSlope, Ensemble)")
+    print(f"  - Rasters generated: {count_processed * 3}")
     print("="*70 + "\n")
     
     return config['landslide_output_path']
