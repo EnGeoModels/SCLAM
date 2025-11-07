@@ -102,7 +102,7 @@ class PreprocessingPipeline:
             etp_grid = self.hargreaves_samani(tmin_grid, tmax_grid, tmean_grid, self.grid_y, date_obj)
 
             # Save result
-            output_file = self.save_raster(etp_grid, self.pet_output_path, f"etp.{date_str}")
+            output_file = self.save_raster(etp_grid, self.pet_output_path, f"pet.{date_str}")
             print(f"✓ ({len(stations)} stations)")
 
         print(f"\nEvapotranspiration (ETP) processing completed ({len(unique_dates)} days)")
