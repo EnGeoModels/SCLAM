@@ -122,7 +122,6 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
     """
     
     if not os.path.exists(crest_output_dir):
-        print(f"[CREST] ERROR: Output directory does not exist: {crest_output_dir}")
         return
     
     # Load warm_up_date from .env to rename templates
@@ -132,21 +131,18 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
     end_date_str = os.getenv('end_date')
     
     if not warm_up_date_str:
-        print(f"[CREST] ERROR: warm_up_date not found in .env")
         return
     
     try:
         warm_up_date = datetime.strptime(warm_up_date_str, '%Y-%m-%d')
         warm_up_date_str_fmt = warm_up_date.strftime('%Y%m%d')
     except:
-        print(f"[CREST] ERROR: Invalid warm_up_date format: {warm_up_date_str}")
         return
     
     if end_date_str:
         try:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         except:
-            print(f"[CREST] ERROR: Invalid end_date format: {end_date_str}")
             end_date = None
     else:
         end_date = None
@@ -154,36 +150,25 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
     # Only these variables need date correction (+1 day)
     variables_to_fix = ['infiltration', 'BFExcess']
     
-    print(f"[CREST] Starting date format correction for: {', '.join(variables_to_fix)}")
-    print(f"[CREST] warm_up_date: {warm_up_date_str}")
-    
     # Create temporary directory for corrections
     temp_dir = os.path.join(crest_output_dir, "temp_corrections")
     os.makedirs(temp_dir, exist_ok=True)
     
     try:
         for variable in variables_to_fix:
-            print(f"\n[CREST] Processing variable: {variable}")
-            
             # 1. Search for all files of this variable in output
             all_files = [f for f in os.listdir(crest_output_dir) 
                         if f.startswith(f"{variable}.") and f.endswith('.tif')]
             
             if not all_files:
-                print(f"[CREST] No files found for {variable}")
                 continue
-            
-            print(f"[CREST] {variable}: {len(all_files)} files found")
             
             # Separate templates from regular files
             template_files = [f for f in all_files if ('YYYYMMDD' in f or '_HHUU' in f)]
             regular_files = [f for f in all_files if not ('YYYYMMDD' in f or '_HHUU' in f)]
             regular_files.sort()
             
-            print(f"[CREST] {variable}: {len(regular_files)} regular, {len(template_files)} templates")
-            
             archivos_procesados = []
-            archivos_rechazados = 0
             
             # Step 1: Process template files FIRST - rename with warm_up_date
             if template_files:
@@ -195,10 +180,8 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
                         
                         shutil.copy2(src_path, dst_path)
                         archivos_procesados.append(nuevo_nombre)
-                        print(f"  ✓ Template: {template_file} → {nuevo_nombre} (warm_up_date)")
-                        
-                    except Exception as e:
-                        print(f"[CREST] Error processing template {template_file}: {e}")
+                    except Exception:
+                        pass
             
             # Step 2: Process regular files - add +1 day to each
             for filename in regular_files:
@@ -206,7 +189,6 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
                     # Extract date from name
                     match = re.search(r'(\d{8})_\d{4}', filename)
                     if not match:
-                        print(f"[CREST] Could not extract date from: {filename}")
                         continue
                     
                     fecha_str = match.group(1)
@@ -219,8 +201,6 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
                     # Validate that corrected date doesn't exceed end_date
                     if end_date:
                         if nueva_fecha > end_date:
-                            print(f"  ✗ REJECTED: {filename} → {nueva_fecha_str} (exceeds end_date)")
-                            archivos_rechazados += 1
                             continue
                     
                     # Build new name
@@ -232,40 +212,31 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
                     
                     # Check for conflicts
                     if os.path.exists(dst_path):
-                        print(f"[CREST] CONFLICT! {nuevo_nombre} already exists. Skipping {filename}")
                         continue
                     
                     shutil.copy2(src_path, dst_path)
                     archivos_procesados.append(nuevo_nombre)
-                    print(f"  ✓ {filename} → {nuevo_nombre} (date +1)")
                     
-                except Exception as e:
-                    print(f"[CREST] Error processing {filename}: {e}")
+                except Exception:
+                    pass
             
             # Step 3: Delete all original files of this variable from output
-            deleted_count = 0
             for filename in all_files:
                 file_path = os.path.join(crest_output_dir, filename)
                 if os.path.exists(file_path):
                     os.remove(file_path)
-                    deleted_count += 1
             
             # Step 4: Move processed files from temporary to output
-            moved_count = 0
             for filename in archivos_procesados:
                 src_path = os.path.join(temp_dir, filename)
                 dst_path = os.path.join(crest_output_dir, filename)
                 if os.path.exists(src_path):
                     shutil.move(src_path, dst_path)
-                    moved_count += 1
-            
-            print(f"[CREST] ✓ {variable}: {moved_count} files processed, {archivos_rechazados} rejected, {deleted_count} originals deleted")
     
     finally:
         # Clean temporary directory
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-            print(f"[CREST] Temporary directory cleaned")
 
 
 def modify_control_file(control_path, start_date, warm_up_date, end_date):
@@ -286,11 +257,6 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date):
     time_warmend = format_crest_date(warm_up_date)
     time_end = format_crest_date(end_date)
     
-    print(f"[CREST] Modifying control.txt:")
-    print(f"  TIME_BEGIN={time_begin}")
-    print(f"  TIME_WARMEND={time_warmend}")
-    print(f"  TIME_END={time_end}")
-    
     # Read control file
     with open(control_path, 'r') as f:
         lines = f.readlines()
@@ -310,8 +276,6 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date):
     # Write modified control file
     with open(control_path, 'w') as f:
         f.writelines(modified_lines)
-    
-    print(f"[CREST] control.txt updated successfully")
 
 
 def run_crest_model():
@@ -326,10 +290,6 @@ def run_crest_model():
     Returns:
         Path to CREST output directory
     """
-    print("\n" + "="*70)
-    print("HYDROLOGICAL MODEL - CREST EXECUTION")
-    print("="*70)
-    
     # Load configuration
     config = load_config()
     
@@ -356,14 +316,9 @@ def run_crest_model():
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(states_dir, exist_ok=True)
     
-    print(f"\n[CREST] Configuration:")
-    print(f"  Executable: {crest_exe}")
-    print(f"  Control file: {control_path}")
-    print(f"  Output directory: {output_dir}")
-    print(f"  States directory: {states_dir}")
+    print(f"  CREST (executing model)...")
     
     # Step 1: Modify control file with dates from .env
-    print(f"\n[CREST] Step 1: Preparing control file")
     modify_control_file(
         control_path,
         config['start_date'],
@@ -372,9 +327,6 @@ def run_crest_model():
     )
     
     # Step 2: Execute CREST
-    print(f"\n[CREST] Step 2: Executing CREST model")
-    print(f"  Running: {crest_exe}")
-    
     try:
         # Run CREST directly (Linux executable, not shell command)
         result = subprocess.run(
@@ -386,35 +338,21 @@ def run_crest_model():
         )
         
         if result.returncode != 0:
-            error_msg = f"[CREST] CREST execution failed with code {result.returncode}"
+            error_msg = f"CREST execution failed with code {result.returncode}"
             if result.stderr:
                 error_msg += f"\nStderr: {result.stderr}"
             if result.stdout:
                 error_msg += f"\nStdout: {result.stdout}"
-            print(error_msg)
             raise RuntimeError(error_msg)
-        
-        print("[CREST] CREST model finished successfully")
-        if result.stdout:
-            print(f"[CREST] Output:\n{result.stdout}")
     
     except subprocess.TimeoutExpired:
-        error_msg = f"[CREST] CREST execution timed out (1 hour limit)"
-        print(error_msg)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(f"CREST execution timed out (1 hour limit)")
     
     except Exception as e:
-        error_msg = f"[CREST] Error running CREST: {e}"
-        print(error_msg)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(f"Error running CREST: {e}")
     
     # Step 3: Rename output files to standard format
-    print(f"\n[CREST] Step 3: Fixing date formats for infiltration and BFExcess")
     fix_crest_date_formats(output_dir, processing_date=None)
-    
-    print("\n" + "="*70)
-    print("✓ CREST EXECUTION COMPLETED SUCCESSFULLY")
-    print("="*70)
     
     return output_dir
 
@@ -423,7 +361,6 @@ def main():
     """Main entry point for standalone execution"""
     try:
         output_dir = run_crest_model()
-        print(f"\n✓ CREST outputs available at: {output_dir}")
         return 0
     except Exception as e:
         print(f"\n✗ Error: {e}")

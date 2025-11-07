@@ -328,20 +328,9 @@ def main():
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
     
-    print(f"[SNOW17] Configuration loaded from .env")
-    print(f"[SNOW17] DEM: {dem_path}")
-    print(f"[SNOW17] Rain input: {rain_output_path}")
-    print(f"[SNOW17] Tavg input: {tavg_output_path}")
-    print(f"[SNOW17] Rainmelt output: {rainmelt_output_path}")
-    print(f"[SNOW17] SWE output: {swe_output_path}")
-    print(f"[SNOW17] Processing period: {start_date_str} to {end_date_str}")
-    
     # Create output directories
     ensure_directory(rainmelt_output_path)
     ensure_directory(swe_output_path)
-    print(f"[SNOW17] Output directories ready")
-    print(f"  - Rainmelt: {rainmelt_output_path}")
-    print(f"  - SWE: {swe_output_path}")
     
     # Read DEM and create parameters
     if not os.path.exists(dem_path):
@@ -349,11 +338,9 @@ def main():
     
     dem, profile = read_geotiff(dem_path)
     dem_params = dem_to_snow17_param(dem)
-    print(f"[SNOW17] DEM loaded with shape: {dem.shape}")
     
     # Initialize states as zeros (default)
     ini_states = create_initial_states(dem)
-    print(f"[SNOW17] Initial states created (zeros)")
     
     hemisphere = 'N'
     dtt = 24  # hours: 24 for daily timestep
@@ -368,8 +355,7 @@ def main():
     if not temp_files:
         raise FileNotFoundError(f"No temperature files found in: {tavg_output_path}")
     
-    print(f"[SNOW17] Found {len(prec_files)} precipitation files")
-    print(f"[SNOW17] Found {len(temp_files)} temperature files")
+    print(f"  SNOW17 ({len(prec_files)} days)...")
     
     # Process each day
     processed_count = 0
@@ -381,10 +367,8 @@ def main():
             continue
         
         if not os.path.exists(tfile):
-            print(f"[SNOW17] Warning: Temperature file not found for {current_date.strftime('%Y-%m-%d')}, skipping")
             continue
         
-        print(f"[SNOW17] Processing {current_date.strftime('%Y-%m-%d')}")
         prec, _ = read_geotiff(pfile)
         temp, _ = read_geotiff(tfile)
         x = create_input_layers(dem, prec, temp, current_date.strftime('%Y-%m-%d'), dem_params)
@@ -402,12 +386,6 @@ def main():
         write_geotiff(swe_file, swe_arr, profile)
         
         processed_count += 1
-        print(f"[SNOW17] Saved: {os.path.basename(rainmelt_file)}, {os.path.basename(swe_file)}")
-    
-    print(f"[SNOW17] Done. Processed {processed_count} days.")
-    print(f"[SNOW17] Outputs saved to:")
-    print(f"  - Rainmelt: {rainmelt_output_path}")
-    print(f"  - SWE: {swe_output_path}")
     
     return {
         'rainmelt_path': rainmelt_output_path,

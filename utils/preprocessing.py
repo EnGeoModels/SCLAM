@@ -30,9 +30,6 @@ def ensure_directory(path):
 class PreprocessingPipeline:
     def process_etp(self, start_date=None, end_date=None):
         """Process evapotranspiration (ETP) using Hargreaves-Samani method."""
-        print("\n" + "="*60)
-        print("Processing Evapotranspiration (ETP) Data")
-        print("="*60)
 
         if not os.path.exists(self.meteo_data_path):
             raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
@@ -47,18 +44,13 @@ class PreprocessingPipeline:
         df = pd.read_csv(self.meteo_data_path)
         df['date'] = pd.to_datetime(df['date'])
 
-        # Load station coordinates
-        print(f"Loading station coordinates from: {self.coordinates_path}")
-        try:
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name='Temp')
-        except:
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name=0)
+        # Load station coordinates from 'Temp' sheet (11 stations)
+        coords_df = pd.read_excel(self.coordinates_path, sheet_name='Temp')
 
         # Filter by required temperature columns
         required_cols = ['min_temperature', 'max_temperature', 'mean_temperature']
         for col in required_cols:
             if col not in df.columns:
-                print(f"Warning: Column '{col}' not found. Available columns: {df.columns.tolist()}")
                 return self
 
         df_etp = df.dropna(subset=required_cols).copy()
@@ -68,24 +60,20 @@ class PreprocessingPipeline:
         if end_date:
             df_etp = df_etp[df_etp['date'] <= pd.to_datetime(end_date)]
 
-        print(f"Processing {len(df_etp)} ETP records")
-        print(f"Date range: {df_etp['date'].min()} to {df_etp['date'].max()}")
+        print(f"  ETP ({len(coords_df)} devices)...")
 
         # Process each unique date
         unique_dates = df_etp['date'].unique()
-        print(f"Unique dates: {len(unique_dates)} days\n")
 
         for date_idx, date in enumerate(unique_dates):
             date_obj = pd.to_datetime(date)
             date_str = date_obj.strftime('%Y%m%d')
-            print(f"[{date_idx+1}/{len(unique_dates)}] Processing: {date_str}", end=" ")
 
             # Get data for this date
             df_day = df_etp[df_etp['date'] == date_obj].copy()
             df_day = df_day.merge(coords_df, left_on='station', right_on='station', how='inner')
 
             if df_day.empty:
-                print("⚠ No station data found")
                 continue
 
             stations = df_day[['Longitude', 'Latitude']].values
@@ -103,9 +91,7 @@ class PreprocessingPipeline:
 
             # Save result
             output_file = self.save_raster(etp_grid, self.pet_output_path, f"pet.{date_str}")
-            print(f"✓ ({len(stations)} stations)")
 
-        print(f"\nEvapotranspiration (ETP) processing completed ({len(unique_dates)} days)")
         return self
     """
     Standalone preprocessing pipeline for meteorological data interpolation.
@@ -137,17 +123,9 @@ class PreprocessingPipeline:
         self.dem_data = None
         self.nodata_value = -9999
         self.bounds = None
-        
-        print("Preprocessing Pipeline initialized")
-        print(f"DEM Path: {self.dem_path}")
-        print(f"Coordinates Path: {self.coordinates_path}")
-        print(f"Meteo Data Path: {self.meteo_data_path}")
-        print(f"Date Range: {self.start_date} to {self.end_date}")
-        print(f"Output paths - Rain: {self.rain_output_path}, PET: {self.pet_output_path}, Tavg: {self.tavg_output_path}")
     
     def load_dem_info(self):
         """Loads DEM raster data and extracts grid coordinates and metadata."""
-        print(f"\nLoading DEM from: {self.dem_path}")
         
         if not os.path.exists(self.dem_path):
             raise FileNotFoundError(f"DEM file not found: {self.dem_path}")
@@ -170,7 +148,6 @@ class PreprocessingPipeline:
             self.meta = src.meta.copy()
             self.bounds = (xmin, xmax, ymin, ymax)
         
-        print(f"DEM loaded successfully - Shape: {self.dem_data.shape}, NoData: {self.nodata_value}")
         return self
 
 
@@ -274,9 +251,6 @@ class PreprocessingPipeline:
     
     def process_precipitation(self, start_date=None, end_date=None):
         """Process precipitation data using IDW interpolation."""
-        print("\n" + "="*60)
-        print("Processing Precipitation Data")
-        print("="*60)
         
         if not os.path.exists(self.meteo_data_path):
             raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
@@ -291,16 +265,8 @@ class PreprocessingPipeline:
         df = pd.read_csv(self.meteo_data_path)
         df['date'] = pd.to_datetime(df['date'])
         
-        # Load station coordinates
-        print(f"Loading station coordinates from: {self.coordinates_path}")
-        try:
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name='Prec')
-        except:
-            # If 'Prec' sheet doesn't exist, try first sheet
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name=0)
-        
-        print(f"Loaded {len(coords_df)} stations")
-        print(f"Columns: {coords_df.columns.tolist()}")
+        # Load station coordinates from 'Prec' sheet (7 stations)
+        coords_df = pd.read_excel(self.coordinates_path, sheet_name='Prec')
         
         # Filter by precipitation data
         df_precip = df[df['precipitation'].notna()].copy()
@@ -310,17 +276,14 @@ class PreprocessingPipeline:
         if end_date:
             df_precip = df_precip[df_precip['date'] <= pd.to_datetime(end_date)]
         
-        print(f"Processing {len(df_precip)} precipitation records")
-        print(f"Date range: {df_precip['date'].min()} to {df_precip['date'].max()}")
+        print(f"  Precipitation ({len(coords_df)} devices)...")
         
         # Process each unique date
         unique_dates = df_precip['date'].unique()
-        print(f"Unique dates: {len(unique_dates)} days")
         
-        for date_idx, date in enumerate(unique_dates):  # Process all dates
+        for date_idx, date in enumerate(unique_dates):
             date_obj = pd.to_datetime(date)
             date_str = date_obj.strftime('%Y%m%d')
-            print(f"[{date_idx+1}/{len(unique_dates)}] Processing: {date_str}", end=" ")
             
             # Get data for this date
             df_day = df_precip[df_precip['date'] == date_obj].copy()
@@ -329,7 +292,6 @@ class PreprocessingPipeline:
             df_day = df_day.merge(coords_df, left_on='station', right_on='station', how='inner')
             
             if df_day.empty:
-                print("⚠ No station data found")
                 continue
             
             # Extract station coordinates and values
@@ -341,16 +303,11 @@ class PreprocessingPipeline:
             
             # Save result
             output_file = self.save_raster(interpolated_grid, self.rain_output_path, f"precip.{date_str}")
-            print(f"✓ ({len(stations)} stations)")
         
-        print(f"\nPrecipitation processing completed ({len(unique_dates)} days)")
         return self
     
     def process_temperature(self, start_date=None, end_date=None, temp_type='mean'):
         """Process temperature data using MLR interpolation."""
-        print("\n" + "="*60)
-        print(f"Processing {temp_type.capitalize()} Temperature Data")
-        print("="*60)
         
         if not os.path.exists(self.meteo_data_path):
             raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
@@ -365,17 +322,12 @@ class PreprocessingPipeline:
         df = pd.read_csv(self.meteo_data_path)
         df['date'] = pd.to_datetime(df['date'])
         
-        # Load station coordinates
-        print(f"Loading station coordinates from: {self.coordinates_path}")
-        try:
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name='Temp')
-        except:
-            coords_df = pd.read_excel(self.coordinates_path, sheet_name=0)
+        # Load station coordinates from 'Temp' sheet (11 stations)
+        coords_df = pd.read_excel(self.coordinates_path, sheet_name='Temp')
         
         # Filter by temperature data
         temp_col = f'{temp_type}_temperature'
         if temp_col not in df.columns:
-            print(f"Warning: Column '{temp_col}' not found. Available columns: {df.columns.tolist()}")
             return self
         
         df_temp = df[df[temp_col].notna()].copy()
@@ -385,17 +337,14 @@ class PreprocessingPipeline:
         if end_date:
             df_temp = df_temp[df_temp['date'] <= pd.to_datetime(end_date)]
         
-        print(f"Processing {len(df_temp)} temperature records")
-        print(f"Date range: {df_temp['date'].min()} to {df_temp['date'].max()}")
+        print(f"  Temperature ({len(coords_df)} devices)...")
         
         # Process each unique date
         unique_dates = df_temp['date'].unique()
-        print(f"Unique dates: {len(unique_dates)} days\n")
         
         for date_idx, date in enumerate(unique_dates):
             date_obj = pd.to_datetime(date)
             date_str = date_obj.strftime('%Y%m%d')
-            print(f"[{date_idx+1}/{len(unique_dates)}] Processing: {date_str}", end=" ")
             
             # Get data for this date
             df_day = df_temp[df_temp['date'] == date_obj].copy()
@@ -404,7 +353,6 @@ class PreprocessingPipeline:
             df_day = df_day.merge(coords_df, left_on='station', right_on='station', how='inner')
             
             if df_day.empty:
-                print("⚠ No station data found")
                 continue
             
             # Extract station coordinates and values
@@ -417,17 +365,13 @@ class PreprocessingPipeline:
             # Save result
             prefix = f"tavg" if temp_type == 'mean' else f"t{temp_type[0]}"
             output_file = self.save_raster(interpolated_grid, self.tavg_output_path, f"{prefix}.{date_str}")
-            print(f"✓ ({len(stations)} stations)")
         
-        print(f"\n{temp_type.capitalize()} temperature processing completed ({len(unique_dates)} days)")
         return self
 
 
 def main():
     """Main execution function for standalone testing."""
-    print("="*60)
-    print("PREPROCESSING PIPELINE - STANDALONE MODE")
-    print("="*60)
+    print("\n[PREPROCESSING] Processing data for", end=" ")
     
     try:
         # Initialize pipeline
@@ -436,21 +380,21 @@ def main():
         # Load DEM
         pipeline.load_dem_info()
 
-        # Process meteorological data using dates from .env
-        print("\n" + "="*60)
-        print(f"Processing data from {pipeline.start_date} to {pipeline.end_date}")
-        print("="*60)
+        # Get date range from .env
+        start_date = pipeline.start_date
+        end_date = pipeline.end_date
+        date_range = f"{start_date} to {end_date}"
+        
+        print(f"({date_range})")
 
-        pipeline.process_precipitation(start_date=pipeline.start_date, end_date=pipeline.end_date)
-        pipeline.process_temperature(start_date=pipeline.start_date, end_date=pipeline.end_date, temp_type='mean')
-        pipeline.process_etp(start_date=pipeline.start_date, end_date=pipeline.end_date)
+        pipeline.process_precipitation(start_date=start_date, end_date=end_date)
+        pipeline.process_temperature(start_date=start_date, end_date=end_date, temp_type='mean')
+        pipeline.process_etp(start_date=start_date, end_date=end_date)
 
-        print("\n" + "="*60)
-        print("✓ Pipeline executed successfully!")
-        print("="*60)
+        print(" Done")
 
     except Exception as e:
-        print(f"\n Error: {e}")
+        print(f"\n[ERROR] {e}")
         import traceback
         traceback.print_exc()
         return 1
