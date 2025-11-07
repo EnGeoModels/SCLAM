@@ -53,7 +53,7 @@ def load_config():
         'RF_model_path': os.getenv('RF_model_path'),
         'landslide_output_path': os.getenv('landslide_output_path'),
         'dem_path': os.getenv('dem_path'),
-        'start_date': os.getenv('start_date'),
+        'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
     }
     
@@ -263,10 +263,10 @@ def main():
     print(f"  - Static data: {config['static_data_path']}")
     print(f"  - RF model: {config['RF_model_path']}")
     print(f"  - Output: {config['landslide_output_path']}")
-    print(f"  - Date range: {config['start_date']} to {config['end_date']}")
+    print(f"  - Date range: {config['warm_up_date']} to {config['end_date']}")
     
     # Parse dates
-    start_date = datetime.strptime(config['start_date'], '%Y-%m-%d')
+    start_date = datetime.strptime(config['warm_up_date'], '%Y-%m-%d')
     end_date = datetime.strptime(config['end_date'], '%Y-%m-%d')
     
     # Create output directory
@@ -397,7 +397,7 @@ def main():
         return file_map
     
     # Get date bounds for filtering
-    start_date_str = config['start_date'].replace('-', '')
+    start_date_str = config['warm_up_date'].replace('-', '')
     end_date_str = config['end_date'].replace('-', '')
     
     # Map all dynamic input variables
