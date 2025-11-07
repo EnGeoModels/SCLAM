@@ -418,7 +418,12 @@ def main():
     
     # Get common dates within range (only require BFExcess, infiltration, and sm)
     required_vars = ['BFExcess', 'infiltration', 'sm']
-    common_dates = sorted(set.intersection(*(set(m.keys()) for m in [file_maps[v] for v in required_vars] if m)))
+    valid_file_maps = [file_maps[v] for v in required_vars if file_maps[v]]
+    
+    if valid_file_maps:
+        common_dates = sorted(set.intersection(*[set(m.keys()) for m in valid_file_maps]))
+    else:
+        common_dates = []
     
     print(f"  ✓ Date range filter applied: {start_date_str} to {end_date_str}")
     
