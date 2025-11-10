@@ -31,8 +31,8 @@ class PreprocessingPipeline:
     def process_etp(self, start_date=None, end_date=None):
         """Process evapotranspiration (ETP) using Hargreaves-Samani method."""
 
-        if not os.path.exists(self.meteo_data_path):
-            raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
+        if not os.path.exists(self.temp_data_path):
+            raise FileNotFoundError(f"Temperature data not found: {self.temp_data_path}")
 
         if not os.path.exists(self.coordinates_path):
             raise FileNotFoundError(f"Coordinates file not found: {self.coordinates_path}")
@@ -41,7 +41,7 @@ class PreprocessingPipeline:
             self.load_dem_info()
 
         # Load meteorological data
-        df = pd.read_csv(self.meteo_data_path)
+        df = pd.read_csv(self.temp_data_path)
         df['date'] = pd.to_datetime(df['date'])
 
         # Load station coordinates from 'Temp' sheet (11 stations)
@@ -103,7 +103,8 @@ class PreprocessingPipeline:
         load_dotenv(env_path)
         
         # Load paths from .env
-        self.meteo_data_path = os.getenv('meteo_data_path')
+        self.prec_data_path = os.getenv('prec_data_path')
+        self.temp_data_path = os.getenv('temp_data_path')
         self.dem_path = os.getenv('dem_path')
         self.coordinates_path = os.getenv('coordinates_path')
         self.pet_output_path = os.getenv('pet_output_path')
@@ -252,8 +253,8 @@ class PreprocessingPipeline:
     def process_precipitation(self, start_date=None, end_date=None):
         """Process precipitation data using IDW interpolation."""
         
-        if not os.path.exists(self.meteo_data_path):
-            raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
+        if not os.path.exists(self.prec_data_path):
+            raise FileNotFoundError(f"Precipitation data not found: {self.prec_data_path}")
         
         if not os.path.exists(self.coordinates_path):
             raise FileNotFoundError(f"Coordinates file not found: {self.coordinates_path}")
@@ -262,7 +263,7 @@ class PreprocessingPipeline:
             self.load_dem_info()
         
         # Load meteorological data
-        df = pd.read_csv(self.meteo_data_path)
+        df = pd.read_csv(self.prec_data_path)
         df['date'] = pd.to_datetime(df['date'])
         
         # Load station coordinates from 'Prec' sheet (7 stations)
@@ -309,8 +310,8 @@ class PreprocessingPipeline:
     def process_temperature(self, start_date=None, end_date=None, temp_type='mean'):
         """Process temperature data using MLR interpolation."""
         
-        if not os.path.exists(self.meteo_data_path):
-            raise FileNotFoundError(f"Meteorological data not found: {self.meteo_data_path}")
+        if not os.path.exists(self.temp_data_path):
+            raise FileNotFoundError(f"Temperature data not found: {self.temp_data_path}")
         
         if not os.path.exists(self.coordinates_path):
             raise FileNotFoundError(f"Coordinates file not found: {self.coordinates_path}")
@@ -319,7 +320,7 @@ class PreprocessingPipeline:
             self.load_dem_info()
         
         # Load meteorological data
-        df = pd.read_csv(self.meteo_data_path)
+        df = pd.read_csv(self.temp_data_path)
         df['date'] = pd.to_datetime(df['date'])
         
         # Load station coordinates from 'Temp' sheet (11 stations)
