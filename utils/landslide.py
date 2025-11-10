@@ -232,6 +232,9 @@ def save_raster(data, output_path, filename, profile):
     
     out_file = os.path.join(output_path, filename)
     
+    # Convert NaN to -9999 nodata value
+    data = np.where(np.isnan(data), -9999, data)
+    
     output_profile = profile.copy()
     output_profile.update({
         'dtype': 'float32',
