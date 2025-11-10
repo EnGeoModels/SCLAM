@@ -139,16 +139,3 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print(f"\n[ERROR] Pipeline interrupted")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n[ERROR] {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
