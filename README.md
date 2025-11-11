@@ -202,9 +202,9 @@ Edit `CREST/control.txt` to adjust:
 Modify in `.env`:
 ```env
 start_date=2012-10-01      # Start date
-warm_up_date=2013-06-01    # Warm-up period
+warm_up_date=2013-06-01    # Warm-up period (use it in CREST)
 end_date=2013-06-30        # End date
-time_state=2013-06-01      # Initial state for restart
+time_state=2013-06-01      # Initial state for restart (used in CREST)
 ```
 
 ## Author
