@@ -1,43 +1,15 @@
 #!/usr/bin/env python3
 """
 SCLAM - Main Pipeline
-Integrates: Preprocessing -> SNOW17 -> CREST -> Landslide
+Integrates: SNOW17 -> CREST -> Landslide
 All configuration from .env file
 """
 
 import os
 import sys
 import subprocess
-import shutil
 from dotenv import load_dotenv
 from datetime import datetime
-
-
-def clean_intermediate_files(config):
-    """Remove intermediate output files, keeping only landslide results"""
-    print("\n[CLEANUP] Removing intermediate files...")
-    
-    # Directories to clean
-    to_clean = [
-        config.get('rain_output_path', 'SNOW17/rain'),
-        config.get('tavg_output_path', 'SNOW17/tavg'),
-        config.get('pet_output_path', 'CREST/pet'),
-        config.get('swe_output_path', 'SNOW17/swe'),
-        config.get('rainmelt_output_path', 'CREST/rainmelt'),
-        config.get('CREST_output_path', 'CREST/output'),
-    ]
-    
-    cleaned_count = 0
-    for directory in to_clean:
-        if os.path.exists(directory):
-            try:
-                shutil.rmtree(directory)
-                cleaned_count += 1
-                print(f"  ✓ Cleaned: {directory}")
-            except Exception as e:
-                print(f"  ✗ Error cleaning {directory}: {e}")
-    
-    print(f"[CLEANUP] Removed {cleaned_count} intermediate directories")
 
 
 def run_module(module_path, description):
@@ -77,7 +49,6 @@ def main():
         'start_date': os.getenv('start_date'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
-        'clean_files': os.getenv('clean_files', 'FALSE').upper(),
         'rain_output_path': os.getenv('rain_output_path'),
         'tavg_output_path': os.getenv('tavg_output_path'),
         'pet_output_path': os.getenv('pet_output_path'),
@@ -93,11 +64,9 @@ def main():
             sys.exit(1)
 
     print(f"\nConfiguration: {config['start_date']} -> {config['end_date']}")
-    print(f"Warm-up date: {config['warm_up_date']}")
-    print(f"Clean files: {'ON' if config['clean_files'] == 'TRUE' else 'OFF'}\n")
+    print(f"Warm-up date: {config['warm_up_date']}\n")
     
     pipeline = [
-        ('utils/preprocessing.py', 'Preprocessing'),
         ('utils/snow17.py', 'SNOW17'),
         ('utils/hydro_model.py', 'CREST'),
         ('utils/landslide.py', 'Landslide')
@@ -114,10 +83,6 @@ def main():
         if not success:
             print(f"[ERROR] Pipeline failed at {description}")
             sys.exit(1)
-    
-    # Clean intermediate files if enabled
-    if config['clean_files'] == 'TRUE':
-        clean_intermediate_files(config)
     
     end_time = datetime.now()
     duration = end_time - start_time
