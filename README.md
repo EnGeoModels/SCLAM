@@ -1,10 +1,10 @@
-# SCLAM - SNOW17-CREST-Integrated Landslide Model
+# SCLAM: SNOW17-CREST-Integrated Landslide Model
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Description
 
-The SCLAM system integrates three main components:
+The SCLAM model system integrates three main components:
 
 1. **SNOW17**: Snowmelt model that simulates snow water balance using precipitation and temperature data
 2. **CREST**: Distributed hydrological model that simulates subsurface flow and runoff generation
