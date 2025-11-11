@@ -65,7 +65,8 @@ def main():
 
     print(f"\nConfiguration: {config['start_date']} -> {config['end_date']}")
     print(f"Warm-up date: {config['warm_up_date']}\n")
-    
+    print(f"State date in hydrological model: {config['time_state']}\n")
+
     pipeline = [
         ('utils/snow17.py', 'SNOW17'),
         ('utils/hydro_model.py', 'CREST'),
