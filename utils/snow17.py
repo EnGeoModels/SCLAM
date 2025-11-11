@@ -356,18 +356,28 @@ def main():
     if not temp_files:
         raise FileNotFoundError(f"No temperature files found in: {tavg_path}")
     
-    print(f"  SNOW17 ({len(prec_files)} days)...")
+    # Create lookup dictionary for temperature files by date
+    temp_files_by_date = {}
+    for tfile in temp_files:
+        temp_date = parse_datetime_from_filename(os.path.basename(tfile))
+        if temp_date:
+            temp_files_by_date[temp_date] = tfile
     
-    # Process each day
+    print(f"  SNOW17 ({len(prec_files)} prec files, {len(temp_files)} temp files)...")
+    
+    # Process each precipitation file
     processed_count = 0
-    for pfile, tfile in zip(prec_files, temp_files):
+    for pfile in prec_files:
         current_date = parse_datetime_from_filename(os.path.basename(pfile))
         
         # Skip if outside date range
         if current_date < start_date or current_date > end_date:
             continue
         
-        if not os.path.exists(tfile):
+        # Find corresponding temperature file for the same date
+        tfile = temp_files_by_date.get(current_date)
+        if not tfile or not os.path.exists(tfile):
+            print(f"  Warning: No temperature file found for date {current_date.strftime('%Y-%m-%d')}")
             continue
         
         prec, _ = read_geotiff(pfile)
