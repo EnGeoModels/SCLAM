@@ -9,3 +9,7 @@ SNOW17/rain/
 CREST/output/
 SNOW17/swe/
 pof_landslide/
+train/
+debug/
+rain/
+tavg/
