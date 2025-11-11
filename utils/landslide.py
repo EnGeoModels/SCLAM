@@ -352,7 +352,7 @@ def main():
         
         # Load other static grids
         slope_path = os.path.join(config['static_data_path'], 'slopes.tif')
-        unc_unstable_path = os.path.join(config['static_data_path'], 'unc_unstable_M.tif')
+        unc_unstable_path = os.path.join(config['static_data_path'], 'unc_unstable.tif')
         
         slope_array = reproject_to_match(slope_path, ref_profile)
         unc_unstable = reproject_to_match(unc_unstable_path, ref_profile)
