@@ -168,8 +168,11 @@ python main.py
 # SNOW17 only
 python utils/snow17.py
 
-# CREST only
+# CREST only (silent mode)
 python utils/hydro_model.py
+
+# CREST only (with verbose CREST output)
+python utils/hydro_model.py --verbose
 
 # Landslide prediction only
 python utils/landslide.py
@@ -201,10 +204,10 @@ Edit `CREST/control.txt` to adjust:
 
 Modify in `.env`:
 ```env
-start_date=2012-10-01      # Start date
-warm_up_date=2013-06-01    # Warm-up period (use it in CREST)
+time_state=2013-06-01      # Initial state for restart (used in CREST)start_date=2012-10-01      # Start date
+warm_up_date=2013-06-01    # Warm-up period (use it in CREST). Not estrictly needed when time_state is specified
 end_date=2013-06-30        # End date
-time_state=2013-06-01      # Initial state for restart (used in CREST)
+
 ```
 
 ## Author

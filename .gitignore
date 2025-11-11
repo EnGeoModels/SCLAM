@@ -2,7 +2,7 @@ __pycache__/
 .env
 .venv
 data_meteo/
-CREST/pet/
+#CREST/pet/
 CREST/rainmelt/
 SNOW17/tavg/
 SNOW17/rain/
@@ -11,7 +11,7 @@ SNOW17/swe/
 pof_landslide/
 train/
 debug/
-rain/
-tavg/
+#rain/
+#tavg/
 utils/preprocessing.py
 swe/
