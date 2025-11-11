@@ -128,9 +128,10 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
     Fixes CREST file date formats for infiltration and BFExcess variables.
     
     LOGIC:
-    1. Template files (YYYYMMDD_HHUU) are renamed with warm_up_date
-    2. All regular files get +1 day added to their date
-    3. Original warm_up_date file gets overwritten by template (now has +1 day)
+    1. Find the earliest date from regular generated files
+    2. Use that date to rename template files (YYYYMMDD_HHUU)
+    3. All regular files get +1 day added to their date
+    4. Original template file gets overwritten by renamed template (now has actual start date)
     
     Uses a temporary subfolder to make corrections safely.
     
@@ -142,20 +143,10 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
     if not os.path.exists(crest_output_dir):
         return
     
-    # Load warm_up_date from .env to rename templates
+    # Load end_date from .env for validation
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
     load_dotenv(env_path)
-    warm_up_date_str = os.getenv('warm_up_date')
     end_date_str = os.getenv('end_date')
-    
-    if not warm_up_date_str:
-        return
-    
-    try:
-        warm_up_date = datetime.strptime(warm_up_date_str, '%Y-%m-%d')
-        warm_up_date_str_fmt = warm_up_date.strftime('%Y%m%d')
-    except:
-        return
     
     if end_date_str:
         try:
@@ -186,13 +177,33 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
             regular_files = [f for f in all_files if not ('YYYYMMDD' in f or '_HHUU' in f)]
             regular_files.sort()
             
+            # Find the earliest date from regular files
+            earliest_date = None
+            if regular_files:
+                for filename in regular_files:
+                    match = re.search(r'(\d{8})_\d{4}', filename)
+                    if match:
+                        fecha_str = match.group(1)
+                        try:
+                            fecha = datetime.strptime(fecha_str, '%Y%m%d')
+                            if earliest_date is None or fecha < earliest_date:
+                                earliest_date = fecha
+                        except:
+                            continue
+            
+            # If no regular files found, skip this variable
+            if earliest_date is None:
+                continue
+                
+            earliest_date_str = earliest_date.strftime('%Y%m%d')
+            
             archivos_procesados = []
             
-            # Step 1: Process template files FIRST - rename with warm_up_date
+            # Step 1: Process template files FIRST - rename with earliest date found
             if template_files:
                 for template_file in template_files:
                     try:
-                        nuevo_nombre = f"{variable}.{warm_up_date_str_fmt}_0000.crestphys.tif"
+                        nuevo_nombre = f"{variable}.{earliest_date_str}_0000.crestphys.tif"
                         src_path = os.path.join(crest_output_dir, template_file)
                         dst_path = os.path.join(temp_dir, nuevo_nombre)
                         
@@ -300,9 +311,13 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date, time_s
         f.writelines(modified_lines)
 
 
-def run_crest_model():
+def run_crest_model(show_output=False):
     """
     Execute CREST hydrological model
+    
+    Args:
+        show_output: If True, display CREST stdout/stderr during execution.
+                    When False, output is captured but not displayed.
     
     Steps:
         1. Load configuration from .env
@@ -355,7 +370,7 @@ def run_crest_model():
         result = subprocess.run(
             [crest_exe],
             cwd=crest_dir,
-            capture_output=True,
+            capture_output=not show_output,  # Show output only if requested
             text=True,
             timeout=3600  # 1 hour timeout
         )
@@ -382,8 +397,13 @@ def run_crest_model():
 
 def main():
     """Main entry point for standalone execution"""
+    # Check if running standalone (not from main.py pipeline)
+    # When run from main.py, no arguments are passed
+    # When run standalone, we can pass --verbose to show CREST output
+    show_crest_output = len(sys.argv) > 1 and sys.argv[1] == '--verbose'
+    
     try:
-        output_dir = run_crest_model()
+        output_dir = run_crest_model(show_output=show_crest_output)
         return 0
     except Exception as e:
         print(f"\n✗ Error: {e}")
