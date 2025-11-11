@@ -25,6 +25,7 @@ def load_config():
         'start_date': os.getenv('start_date'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
+        'time_state': os.getenv('time_state'),
     }
     
     # Validate required variables
@@ -48,6 +49,23 @@ def format_crest_date(date_str):
     try:
         dt = datetime.strptime(date_str, '%Y-%m-%d')
         return dt.strftime('%Y%m%d0000')
+    except Exception as e:
+        raise ValueError(f"Error parsing date {date_str}: {e}")
+
+
+def format_crest_state_date(date_str):
+    """
+    Convert date string from YYYY-MM-DD format to YYYYMMDD format for TIME_STATE
+    
+    Args:
+        date_str: Date in format 'YYYY-MM-DD'
+    
+    Returns:
+        Date in format 'YYYYMMDD'
+    """
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        return dt.strftime('%Y%m%d')
     except Exception as e:
         raise ValueError(f"Error parsing date {date_str}: {e}")
 
@@ -239,7 +257,7 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
             shutil.rmtree(temp_dir)
 
 
-def modify_control_file(control_path, start_date, warm_up_date, end_date):
+def modify_control_file(control_path, start_date, warm_up_date, end_date, time_state):
     """
     Modify CREST control.txt file with new time parameters
     
@@ -248,6 +266,7 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date):
         start_date: Start date in YYYY-MM-DD format
         warm_up_date: Warm-up end date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
+        time_state: State date in YYYY-MM-DD format
     """
     if not os.path.exists(control_path):
         raise FileNotFoundError(f"Control file not found: {control_path}")
@@ -256,6 +275,7 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date):
     time_begin = format_crest_date(start_date)
     time_warmend = format_crest_date(warm_up_date)
     time_end = format_crest_date(end_date)
+    time_state_formatted = format_crest_state_date(time_state)
     
     # Read control file
     with open(control_path, 'r') as f:
@@ -270,6 +290,8 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date):
             modified_lines.append(f'TIME_WARMEND={time_warmend}\n')
         elif line.startswith('TIME_END='):
             modified_lines.append(f'TIME_END={time_end}\n')
+        elif line.startswith('TIME_STATE='):
+            modified_lines.append(f'TIME_STATE={time_state_formatted}\n')
         else:
             modified_lines.append(line)
     
@@ -323,7 +345,8 @@ def run_crest_model():
         control_path,
         config['start_date'],
         config['warm_up_date'],
-        config['end_date']
+        config['end_date'],
+        config['time_state']
     )
     
     # Step 2: Execute CREST
