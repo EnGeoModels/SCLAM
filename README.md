@@ -4,7 +4,7 @@
 
 SCLAM (SNOW17-CREST Landslide Assessment Model) is an integrated hydrological-geological modeling system that combines the SNOW17 snowmelt model with the CREST distributed hydrological model for landslide prediction.
 
-## 📋 Description
+## Description
 
 The SCLAM system integrates three main components:
 
@@ -81,7 +81,7 @@ pip install -r requirements.txt
 
 The system is fully configured through the `.env` file. Copy the example file and modify it:
 
-**Main parameters:**
+**Main parameters (.env file example):**
 
 ```env
 # Geospatial data paths
@@ -107,7 +107,7 @@ RF_model_path=RF_model.pkl
 static_data_path=static
 ```
 
-### Required Data Structure
+### Suggested Data Structure
 
 ```
 SCLAM/
@@ -177,20 +177,6 @@ python utils/hydro_model.py --verbose
 # Landslide prediction only
 python utils/landslide.py
 ```
-
-## System Outputs
-
-### SNOW17
-- `SNOW17/swe/`: Snow Water Equivalent (SWE) daily
-- `CREST/rainmelt/`: Rainmelt (rain-generated melt)
-
-### CREST
-- `CREST/output/`: Hydrological variables (runoff, soil moisture, etc.)
-- `CREST/states/`: Model states for restart
-
-### Landslide Model
-- `pof_landslide/`: Landslide probability maps
-
 ## Advanced Configuration
 
 ### CREST Parameter Modification
@@ -200,7 +186,7 @@ Edit `CREST/control.txt` to adjust:
 - Routing parameters
 - Additional detailed information in: https://chrimerss.github.io/EF5/docs/#si
 
-### Simulation Period Change
+### Simulation Period Change (example)
 
 Modify in `.env`:
 ```env
@@ -209,6 +195,8 @@ warm_up_date=2013-06-01    # Warm-up period (use it in CREST). Not estrictly nee
 end_date=2013-06-30        # End date
 
 ```
+### Example data
+- Example data provided in example_data.zip file in GeoTIFF format for reproducibility
 
 ## Author
 
