@@ -49,6 +49,7 @@ def main():
         'start_date': os.getenv('start_date'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
+        'time_state': os.getenv('time_state'),
         'rain_output_path': os.getenv('rain_output_path'),
         'tavg_output_path': os.getenv('tavg_output_path'),
         'pet_output_path': os.getenv('pet_output_path'),
