@@ -199,5 +199,4 @@ end_date=2013-06-30        # End date
 - Example data provided in example_data.zip file in GeoTIFF format for reproducibility
 
 ## Author
-
 - Flavio Alexander Asurza. Contact: flavio.alexander.asurza@upc.edu
