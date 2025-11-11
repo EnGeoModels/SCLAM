@@ -138,8 +138,7 @@ Precipitation and temperature data must be in **GeoTIFF** format with:
 - **Units**: Precipitation (mm/day), Temperature (°C)
 - **Naming format**: `rain.YYYYMMDD.tif` and `tavg.YYYYMMDD.tif`
 
-Portential evapotranspiration is desirable, specially for long term runs. This demo provide it (`tavg.YYYYMMDD.tif` in CREST/pet) estimated based on Hargreaves-Samani equation (only requires temperature).
-
+Portential evapotranspiration is desirable, specially for long term runs. We suggest to estimate it based on Hargreaves-Samani equation (only requires temperature).
 
 ### Digital Elevation Model (DEM)
 
