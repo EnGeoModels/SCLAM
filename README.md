@@ -132,7 +132,7 @@ SCLAM/
 
 ### Meteorological Data
 
-Precipitation and temperature data must be in **GeoTIFF** format with:
+Precipitation and temperature can be in **GeoTIFF** format with:
 - **Projection**: Appropriate extent and coordinate system for the watershed
 - **Resolution**: Consistent with DEM (CREST/basic)
 - **Units**: Precipitation (mm/day), Temperature (°C)
@@ -140,18 +140,16 @@ Precipitation and temperature data must be in **GeoTIFF** format with:
 
 Portential evapotranspiration is desirable, specially for long term runs. We suggest to estimate it based on Hargreaves-Samani equation (only requires temperature).
 
-### Digital Elevation Model (DEM)
+### Digital Elevation Model (DEM), Flow Direction (FDR) and Flow Accumulation (FAC)
 
-- **Format**: ESRI ASCII (.asc)
-- **Requirements**: Must match flow direction (FDR) and flow accumulation (FAC) layers
+- **Format**: ESRI ASCII (.asc) or GeoTIFF (.tif)
+- **Requirements**: Must match FDR and FAC layers
 
 ### Static data
-- **Format**: GeoTIFF (.tif). Used to run infinite slope model
+- **Format**: GeoTIFF (.tif). Used to run infinite slope and Random Forest model
 
 ### Random Forest Model
-
 - **File**: `RF_model.pkl` (pre-trained)
-- **Variables**: Based on hydrological and topographic data
 
 ## SCLAM Usage
 
