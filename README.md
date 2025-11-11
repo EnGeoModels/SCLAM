@@ -1,8 +1,6 @@
-# SCLAM - SNOW17-CREST Integrated Landslide Model
+# SCLAM - SNOW17-CREST-Integrated Landslide Model
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-SCLAM (SNOW17-CREST Landslide Assessment Model) is an integrated hydrological-geological modeling system that combines the SNOW17 snowmelt model with the CREST distributed hydrological model for landslide prediction.
 
 ## Description
 
@@ -10,7 +8,7 @@ The SCLAM system integrates three main components:
 
 1. **SNOW17**: Snowmelt model that simulates snow water balance using precipitation and temperature data
 2. **CREST**: Distributed hydrological model that simulates subsurface flow and runoff generation
-3. **Landslide**: Integrated Machine learning and infinite slope model for probability of failure prediction (ñandslide initiation areas)
+3. **Landslide**: Integrated Random Forest and infinite slope model for probability of failure prediction (landslide initiation areas)
 
 ## System Architecture
 
