@@ -289,9 +289,10 @@ def main():
     Main function for SNOW-17 gridded model.
     Reads all configuration from .env file:
     - dem_path: Path to DEM file
-    - rain_output_path: Output path from preprocessing (rain files)
-    - tavg_output_path: Output path from preprocessing (temperature files)
+    - rain_path: Input path from preprocessing (rain files)
+    - tavg_path: Inout path from preprocessing (temperature files)
     - rainmelt_output_path: Output path for rainmelt results
+    - swe_output_path: Output path for snow water equivalent results
     - start_date, end_date: Processing date range
     
     Initial states are created as zeros (no file loading).
@@ -302,8 +303,8 @@ def main():
     
     # Read paths from .env
     dem_path = os.getenv('dem_path')
-    rain_output_path = os.getenv('rain_output_path')
-    tavg_output_path = os.getenv('tavg_output_path')
+    rain_path = os.getenv('rain_path')
+    tavg_path = os.getenv('tavg_path')
     rainmelt_output_path = os.getenv('rainmelt_output_path')
     swe_output_path = os.getenv('swe_output_path')
     start_date_str = os.getenv('start_date')
@@ -312,8 +313,8 @@ def main():
     # Validate required environment variables
     required_vars = {
         'dem_path': dem_path,
-        'rain_output_path': rain_output_path,
-        'tavg_output_path': tavg_output_path,
+        'rain_path': rain_path,
+        'tavg_path': tavg_path,
         'rainmelt_output_path': rainmelt_output_path,
         'swe_output_path': swe_output_path,
         'start_date': start_date_str,
@@ -347,13 +348,13 @@ def main():
     dtp = 24  # hours: 24 for daily timestep
     
     # Get rain and temperature files
-    prec_files = sorted([f for f in glob.glob(os.path.join(rain_output_path, '*.tif')) if parse_datetime_from_filename(os.path.basename(f))])
-    temp_files = sorted([f for f in glob.glob(os.path.join(tavg_output_path, '*.tif')) if parse_datetime_from_filename(os.path.basename(f))])
+    prec_files = sorted([f for f in glob.glob(os.path.join(rain_path, '*.tif')) if parse_datetime_from_filename(os.path.basename(f))])
+    temp_files = sorted([f for f in glob.glob(os.path.join(tavg_path, '*.tif')) if parse_datetime_from_filename(os.path.basename(f))])
     
     if not prec_files:
-        raise FileNotFoundError(f"No precipitation files found in: {rain_output_path}")
+        raise FileNotFoundError(f"No precipitation files found in: {rain_path}")
     if not temp_files:
-        raise FileNotFoundError(f"No temperature files found in: {tavg_output_path}")
+        raise FileNotFoundError(f"No temperature files found in: {tavg_path}")
     
     print(f"  SNOW17 ({len(prec_files)} days)...")
     
