@@ -36,7 +36,7 @@ def run_module(module_path, description):
 def main():
     """Main pipeline execution"""
     print("\n" + "="*60)
-    print("SCLAM - HYDROLOGICAL-LANDSLIDE MODELING SYSTEM")
+    print("SCLAM - HYDROLOGICAL-LANDSLIDE MODELLING SYSTEM")
     print("="*60)
     
     if not os.path.exists('.env'):
