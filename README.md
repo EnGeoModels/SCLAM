@@ -146,7 +146,9 @@ Portential evapotranspiration is desirable, specially for long term runs. We sug
 - **Requirements**: Must match FDR and FAC layers
 
 ### Static data
-- **Format**: GeoTIFF (.tif). Used to run infinite slope and Random Forest model
+- **Soil grids**: GeoTIFF (.tif). Used to run infinite slope and Random Forest model
+- **Soil properties**: Comma-Separated Values (.tif). To indicate values of soil properties for each type of soil in the study area.
+
 
 ### Random Forest Model
 - **File**: `RF_model.pkl` (pre-trained)
@@ -195,4 +197,4 @@ end_date=2013-06-30        # End date
 - Example data provided in example_data.zip file in GeoTIFF format for reproducibility
 
 ## Author
-- Flavio Alexander Asurza. Contact: flavio.alexander.asurza@upc.edu
+- Alex Asurza. Contact: flavio.alexander.asurza@upc.edu
