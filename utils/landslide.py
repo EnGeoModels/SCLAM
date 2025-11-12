@@ -20,8 +20,6 @@ from dotenv import load_dotenv
 G = 9.81
 DW = 1000
 DS = 2000
-B = 30
-
 
 def ensure_directory(path):
     """
@@ -55,6 +53,7 @@ def load_config():
         'dem_path': os.getenv('dem_path'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
+        'utm_projection': os.getenv('utm_projection'),
     }
     
     # Validate required variables
@@ -96,6 +95,64 @@ def reproject_to_match(src_path, reference_profile, reference_crs='EPSG:4326'):
             dst_array[dst_array == nodata_value] = np.nan
     
     return dst_array
+
+
+def get_pixel_size_from_dem(dem_path, utm_projection):
+    """
+    Extract pixel size in meters from DEM by reprojecting to UTM
+    
+    Args:
+        dem_path: Path to DEM raster file
+        utm_projection: UTM projection code (e.g., 'EPSG:32631')
+    
+    Returns:
+        Pixel size in meters (float)
+    """
+    try:
+        with rasterio.open(dem_path) as src:
+            # Get the transform
+            transform = src.transform
+            src_crs = src.crs
+            
+            # Extract pixel size from transform
+            # transform is a Affine object: | a, b, c |
+            #                               | d, e, f |
+            # where a = pixel width, e = -pixel height
+            
+            # If DEM is in geographic coordinates, we need to estimate in meters
+            if src_crs is None:
+                # Assume geographic (lat/lon) and estimate for the center of the bounds
+                bounds = src.bounds
+                center_lat = (bounds.bottom + bounds.top) / 2
+                
+                # Convert degrees to meters at this latitude
+                # 1 degree latitude ≈ 111 km
+                # 1 degree longitude ≈ 111 km * cos(latitude)
+                import math
+                lat_rad = math.radians(center_lat)
+                meters_per_degree_lat = 111000  # meters
+                meters_per_degree_lon = 111000 * math.cos(lat_rad)
+                
+                # Get pixel size in degrees
+                pixel_width_deg = abs(transform.a)
+                pixel_height_deg = abs(transform.e)
+                
+                # Convert to meters
+                pixel_width_m = pixel_width_deg * meters_per_degree_lon
+                pixel_height_m = pixel_height_deg * meters_per_degree_lat
+                
+                # Use average
+                pixel_size = (pixel_width_m + pixel_height_m) / 2
+                return pixel_size
+            else:
+                # If already in UTM or metric projection
+                pixel_size = abs(transform.a)
+                return pixel_size
+    
+    except Exception as e:
+        print(f"Error: Could not extract pixel size from DEM: {e}")
+        print(f"Cannot continue without a valid pixel size. Please check your DEM file.")
+        raise RuntimeError(f"Failed to extract pixel size from DEM: {e}")
 
 
 def reclassify(grid, mapping, nodata=np.nan):
@@ -258,6 +315,11 @@ def main():
     try:
         # Load configuration
         config = load_config()
+        
+        # Set global B from DEM pixel size in UTM
+        global B
+        B = get_pixel_size_from_dem(config['dem_path'], config['utm_projection'])
+        print(f"  Pixel size (B): {B:.2f} meters")
         
         # Parse dates
         start_date = datetime.strptime(config['warm_up_date'], '%Y-%m-%d')
