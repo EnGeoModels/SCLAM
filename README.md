@@ -119,6 +119,12 @@ SCLAM/
 │   │   └── FAC.asc          # Flow Accumulation
 │   ├── ef5                  # CREST executable (Linux)
 │   └── control.txt          # CREST configuration file
+├── models/                  # Model package
+│   ├── __init__.py         # Package initialization
+│   ├── snow17.py           # SNOW17 snowmelt model
+│   ├── hydro_model.py      # CREST hydrological model
+│   ├── landslide.py        # Landslide prediction models
+│   └── preprocessing.py    # Data preprocessing utilities
 ├── rain/                    # Precipitation files (GeoTIFF)
 │   ├── rain.20120101.tif
 │   ├── rain.20120102.tif
@@ -127,6 +133,8 @@ SCLAM/
 │   ├── tavg.20121001.tif
 │   ├── tavg.20121002.tif
 │   └── ...
+├── static/                  # Static data (soil, DEM, slopes, etc.)
+├── main.py                 # Main pipeline orchestrator
 ├── RF_model.pkl            # Trained Random Forest model
 └── .env                     # Configuration
 ```
@@ -166,16 +174,16 @@ python main.py
 
 ```bash
 # SNOW17 only
-python utils/snow17.py
+python models/snow17.py
 
 # CREST only (silent mode)
-python utils/hydro_model.py
+python models/hydro_model.py
 
 # CREST only (with verbose CREST output)
-python utils/hydro_model.py --verbose
+python models/hydro_model.py --verbose
 
 # Landslide prediction only
-python utils/landslide.py
+python models/landslide.py
 ```
 ## Advanced Configuration
 
