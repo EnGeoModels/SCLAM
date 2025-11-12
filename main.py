@@ -7,30 +7,9 @@ All configuration from .env file
 
 import os
 import sys
-import subprocess
 from dotenv import load_dotenv
 from datetime import datetime
-
-
-def run_module(module_path, description):
-    """Run a Python module and handle errors"""
-    print(f"\n[RUNNING] {description}")
-    
-    try:
-        result = subprocess.run([sys.executable, module_path], 
-                              cwd=os.getcwd(),
-                              capture_output=False,
-                              text=True)
-        
-        if result.returncode == 0:
-            return True
-        else:
-            print(f"[ERROR] {description} failed with exit code {result.returncode}")
-            return False
-            
-    except Exception as e:
-        print(f"[ERROR] {description}: {e}")
-        return False
+import models
 
 
 def main():
@@ -68,27 +47,23 @@ def main():
     print(f"Warm-up date: {config['warm_up_date']}\n")
     print(f"State date in hydrological model: {config['time_state']}\n")
 
-    pipeline = [
-        ('utils/snow17.py', 'SNOW17'),
-        ('utils/hydro_model.py', 'CREST'),
-        ('utils/landslide.py', 'Landslide')
-    ]
-    
     start_time = datetime.now()
-    
-    for module_path, description in pipeline:
-        if not os.path.exists(module_path):
-            print(f"[ERROR] Module not found: {module_path}")
-            sys.exit(1)
-        
-        success = run_module(module_path, description)
-        if not success:
-            print(f"[ERROR] Pipeline failed at {description}")
-            sys.exit(1)
-    
+
+    # Run pipeline using models package entry points
+    try:
+        print("\n[RUNNING] SNOW17")
+        models.run_snow17()
+        print("\n[RUNNING] CREST")
+        models.run_crest_model()
+        print("\n[RUNNING] Landslide")
+        models.run_landslide()
+    except Exception as e:
+        print(f"[ERROR] Pipeline failed: {e}")
+        sys.exit(1)
+
     end_time = datetime.now()
     duration = end_time - start_time
-    
+
     print(f"\n" + "="*70)
     print(f"COMPLETED in {duration}")
     print(f"Outputs: {config['landslide_output_path']}/")
