@@ -94,6 +94,9 @@ CREST_exe_path=CREST/ef5
 CREST_output_path=CREST/output
 landslide_output_path=pof_landslide
 
+# UTM projection for the study area (Valle de Arán, Spain is in UTM Zone 31N)
+utm_projection=EPSG:32631
+
 # Simulation period
 start_date=2012-10-01
 warm_up_date=2013-06-01
@@ -176,6 +179,29 @@ python utils/landslide.py
 ```
 ## Advanced Configuration
 
+### Landslide Model Parameters
+
+The pixel size (constant B) in the infinite slope model is **automatically extracted** from the DEM by reprojecting it to UTM coordinates. This ensures that B is always in meters and corresponds to the actual spatial resolution of your data.
+
+**Configuration in `.env`:**
+```env
+# UTM projection for the study area
+# Valle de Arán, Spain uses UTM Zone 31N (EPSG:32631)
+utm_projection=EPSG:32631
+```
+
+The pixel size is automatically calculated when the landslide model runs:
+- DEM is read in its original projection
+- Reprojected to the specified UTM zone
+- Pixel size extracted in meters
+- Used as constant B in the infinite slope stability equation
+
+**Common UTM Zones:**
+- Spain (Iberian Peninsula): EPSG:32631 (Zone 31N)
+- France (Alps): EPSG:32632 (Zone 32N)
+- Italy: EPSG:32632-EPSG:32633 (Zones 32-33N)
+- Pyrenees: EPSG:32631 (Zone 31N)
+
 ### CREST Parameter Modification
 
 Edit `CREST/control.txt` to adjust:
@@ -191,8 +217,8 @@ time_state=2013-06-01      # Initial state for restart (used in CREST)
 start_date=2012-10-01      # Start date
 warm_up_date=2013-06-01    # Warm-up period (use it in CREST). Not estrictly needed when time_state is specified
 end_date=2013-06-30        # End date
-
 ```
+
 ### Example data
 - Example data provided in example_data.zip file in GeoTIFF format for reproducibility
 
