@@ -155,29 +155,6 @@ python models/landslide.py
 ```
 ## Advanced Configuration
 
-### Landslide Model Parameters
-
-The pixel size (constant B) in the infinite slope model is **automatically extracted** from the DEM by reprojecting it to UTM coordinates. This ensures that B is always in meters and corresponds to the actual spatial resolution of your data.
-
-**Configuration in `.env`:**
-```env
-# UTM projection for the study area
-# Valle de Arán, Spain uses UTM Zone 31N (EPSG:32631)
-utm_projection=EPSG:32631
-```
-
-The pixel size is automatically calculated when the landslide model runs:
-- DEM is read in its original projection
-- Reprojected to the specified UTM zone
-- Pixel size extracted in meters
-- Used as constant B in the infinite slope stability equation
-
-**Common UTM Zones:**
-- Spain (Iberian Peninsula): EPSG:32631 (Zone 31N)
-- France (Alps): EPSG:32632 (Zone 32N)
-- Italy: EPSG:32632-EPSG:32633 (Zones 32-33N)
-- Pyrenees: EPSG:32631 (Zone 31N)
-
 ### CREST Parameter Modification
 
 Edit `CREST/control.txt` to adjust:
