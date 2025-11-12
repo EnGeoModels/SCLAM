@@ -107,38 +107,6 @@ time_state=2013-06-01
 RF_model_path=RF_model.pkl
 static_data_path=static
 ```
-
-### Suggested Data Structure
-
-```
-SCLAM/
-├── CREST/
-│   ├── basic/
-│   │   ├── DEM.asc          # Digital Elevation Model
-│   │   ├── FDR.asc          # Flow Direction
-│   │   └── FAC.asc          # Flow Accumulation
-│   ├── ef5                  # CREST executable (Linux)
-│   └── control.txt          # CREST configuration file
-├── models/                  # Model package
-│   ├── __init__.py         # Package initialization
-│   ├── snow17.py           # SNOW17 snowmelt model
-│   ├── hydro_model.py      # CREST hydrological model
-│   ├── landslide.py        # Landslide prediction models
-│   └── preprocessing.py    # Data preprocessing utilities
-├── rain/                    # Precipitation files (GeoTIFF)
-│   ├── rain.20120101.tif
-│   ├── rain.20120102.tif
-│   └── ...
-├── tavg/                    # Temperature files (GeoTIFF)
-│   ├── tavg.20121001.tif
-│   ├── tavg.20121002.tif
-│   └── ...
-├── static/                  # Static data (soil, DEM, slopes, etc.)
-├── main.py                 # Main pipeline orchestrator
-├── RF_model.pkl            # Trained Random Forest model
-└── .env                     # Configuration
-```
-
 ## Input Data
 
 ### Meteorological Data
