@@ -175,5 +175,8 @@ end_date=2013-06-30        # End date
 ### Example data
 - Example data provided in example_data.zip file in GeoTIFF format for reproducibility
 
+## General usage
+- The shared example and SCLAM configuration allow for reproducibility when running at a daily timestep. Additional considerations may be needed if more complex model configurations are required, and users are free to explore these options. If you have any questions, please do not hesitate to contact the author
+
 ## Author
 - Alex Asurza. Contact: flavio.alexander.asurza@upc.edu
