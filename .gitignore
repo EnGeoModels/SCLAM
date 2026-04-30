@@ -15,3 +15,4 @@ rain/
 tavg/
 models/preprocessing.py
 swe/
+.codex
