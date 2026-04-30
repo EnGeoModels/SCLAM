@@ -105,6 +105,7 @@ time_state=2013-06-01
 
 # Trained model
 RF_model_path=RF_model.pkl
+use_random_forest=true
 static_data_path=static
 ```
 ## Input Data
@@ -131,6 +132,7 @@ Portential evapotranspiration is desirable, specially for long term runs. We sug
 
 ### Random Forest Model
 - **File**: `RF_model.pkl` (pre-trained)
+- To run landslide prediction using only the Infinite Slope model, set `use_random_forest=false` in `.env`.
 
 ## SCLAM Usage
 
