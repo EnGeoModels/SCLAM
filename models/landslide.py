@@ -42,6 +42,10 @@ def load_config():
     """Load all configuration from .env file"""
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
     load_dotenv(env_path)
+
+    use_random_forest = os.getenv('use_random_forest', 'true').strip().lower() not in {
+        '0', 'false', 'no', 'off'
+    }
     
     config = {
         'CREST_output_path': os.getenv('CREST_output_path'),
@@ -49,6 +53,7 @@ def load_config():
         'swe_output_path': os.getenv('swe_output_path'),
         'static_data_path': os.getenv('static_data_path'),
         'RF_model_path': os.getenv('RF_model_path'),
+        'use_random_forest': use_random_forest,
         'landslide_output_path': os.getenv('landslide_output_path'),
         'dem_path': os.getenv('dem_path'),
         'warm_up_date': os.getenv('warm_up_date'),
@@ -57,7 +62,16 @@ def load_config():
     }
     
     # Validate required variables
-    for key, value in config.items():
+    required_keys = [
+        'CREST_output_path', 'rainmelt_output_path', 'swe_output_path',
+        'static_data_path', 'landslide_output_path', 'dem_path',
+        'warm_up_date', 'end_date', 'utm_projection'
+    ]
+    if use_random_forest:
+        required_keys.append('RF_model_path')
+
+    for key in required_keys:
+        value = config[key]
         if not value:
             raise ValueError(f"Missing environment variable: {key}")
     
@@ -335,22 +349,25 @@ def main():
         with rasterio.open(config['dem_path']) as src:
             ref_profile = src.profile.copy()
         
-        # Load RF model
-        if not os.path.exists(config['RF_model_path']):
-            raise FileNotFoundError(f"RF model not found: {config['RF_model_path']}")
-        
-        rf_model = joblib.load(config['RF_model_path'])
-        
-        # Load static layers for RF
-        static_vars = ['cumflow', 'Ks', 'slopes', 'z']
+        rf_model = None
         sta_layers = {}
-        
-        for var in static_vars:
-            path = os.path.join(config['static_data_path'], f"{var}.tif")
-            if not os.path.exists(path):
-                continue
-            arr = reproject_to_match(path, ref_profile)
-            sta_layers[var] = arr
+
+        if config['use_random_forest']:
+            # Load RF model
+            if not os.path.exists(config['RF_model_path']):
+                raise FileNotFoundError(f"RF model not found: {config['RF_model_path']}")
+            
+            rf_model = joblib.load(config['RF_model_path'])
+            
+            # Load static layers for RF
+            static_vars = ['cumflow', 'Ks', 'slopes', 'z']
+            
+            for var in static_vars:
+                path = os.path.join(config['static_data_path'], f"{var}.tif")
+                if not os.path.exists(path):
+                    continue
+                arr = reproject_to_match(path, ref_profile)
+                sta_layers[var] = arr
         
         # Load soil and land use data
         soil_path = os.path.join(config['static_data_path'], 'soil_grid_30m.tif')
@@ -467,7 +484,8 @@ def main():
         if not common_dates:
             raise RuntimeError("No valid dates found in CREST output within specified range")
         
-        print(f"  Landslide ({len(common_dates)} dates × 3 models)...")
+        model_count = 3 if config['use_random_forest'] else 1
+        print(f"  Landslide ({len(common_dates)} dates × {model_count} models)...")
         
         # Process each date
         count_processed = 0
@@ -489,9 +507,6 @@ def main():
                 
                 valid_mask = ~np.isnan(sm)
                 
-                # Run RF model
-                rf_raster = run_rf_model(date, rf_model, sta_layers, file_maps, ref_profile)
-                
                 # Run Physical model with SWE
                 phys_raster = stability_model(
                     x, qa, qe, sm, swe,
@@ -500,23 +515,27 @@ def main():
                     C_soil_sd, C_lulc_sd, unc_unstable,
                     use_swe=True  # Enable SWE effect
                 )
-                
-                # Compute weighted average: (2*RF + 1*Physical) / 3
-                mean_raster = np.full_like(phys_raster, -9999, dtype=np.float32)
-                
-                both_valid = valid_mask & ~np.isnan(rf_raster) & ~np.isnan(phys_raster)
-                mean_raster[both_valid] = (2 * rf_raster[both_valid] + phys_raster[both_valid]) / 3.0
-                
-                only_phys_valid = valid_mask & np.isnan(rf_raster) & ~np.isnan(phys_raster)
-                mean_raster[only_phys_valid] = phys_raster[only_phys_valid]
-                
-                only_rf_valid = valid_mask & ~np.isnan(rf_raster) & np.isnan(phys_raster)
-                mean_raster[only_rf_valid] = rf_raster[only_rf_valid]
-                
-                # Save all three rasters
-                save_raster(rf_raster, config['landslide_output_path'], f"PoF_RF_{date}.tif", ref_profile)
+
                 save_raster(phys_raster, config['landslide_output_path'], f"PoF_InfiniteSlope_{date}.tif", ref_profile)
-                save_raster(mean_raster, config['landslide_output_path'], f"PoF_Ensemble_{date}.tif", ref_profile)
+
+                if config['use_random_forest']:
+                    # Run RF model
+                    rf_raster = run_rf_model(date, rf_model, sta_layers, file_maps, ref_profile)
+                    
+                    # Compute weighted average: (2*RF + 1*Physical) / 3
+                    mean_raster = np.full_like(phys_raster, -9999, dtype=np.float32)
+                    
+                    both_valid = valid_mask & ~np.isnan(rf_raster) & ~np.isnan(phys_raster)
+                    mean_raster[both_valid] = (2 * rf_raster[both_valid] + phys_raster[both_valid]) / 3.0
+                    
+                    only_phys_valid = valid_mask & np.isnan(rf_raster) & ~np.isnan(phys_raster)
+                    mean_raster[only_phys_valid] = phys_raster[only_phys_valid]
+                    
+                    only_rf_valid = valid_mask & ~np.isnan(rf_raster) & np.isnan(phys_raster)
+                    mean_raster[only_rf_valid] = rf_raster[only_rf_valid]
+                    
+                    save_raster(rf_raster, config['landslide_output_path'], f"PoF_RF_{date}.tif", ref_profile)
+                    save_raster(mean_raster, config['landslide_output_path'], f"PoF_Ensemble_{date}.tif", ref_profile)
                 
                 count_processed += 1
             
