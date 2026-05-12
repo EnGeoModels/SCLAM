@@ -15,6 +15,11 @@ import joblib
 from datetime import datetime
 from dotenv import load_dotenv
 
+try:
+    from models.config import env_bool
+except ImportError:
+    from config import env_bool
+
 
 # Physical constants
 G = 9.81
@@ -43,9 +48,8 @@ def load_config():
     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
     load_dotenv(env_path)
 
-    use_random_forest = os.getenv('use_random_forest', 'true').strip().lower() not in {
-        '0', 'false', 'no', 'off'
-    }
+    use_random_forest = env_bool('use_random_forest', True)
+    use_snow17 = env_bool('use_snow17', True)
     
     config = {
         'CREST_output_path': os.getenv('CREST_output_path'),
@@ -54,6 +58,7 @@ def load_config():
         'static_data_path': os.getenv('static_data_path'),
         'RF_model_path': os.getenv('RF_model_path'),
         'use_random_forest': use_random_forest,
+        'use_snow17': use_snow17,
         'landslide_output_path': os.getenv('landslide_output_path'),
         'dem_path': os.getenv('dem_path'),
         'warm_up_date': os.getenv('warm_up_date'),
@@ -63,12 +68,13 @@ def load_config():
     
     # Validate required variables
     required_keys = [
-        'CREST_output_path', 'rainmelt_output_path', 'swe_output_path',
-        'static_data_path', 'landslide_output_path', 'dem_path',
+        'CREST_output_path', 'static_data_path', 'landslide_output_path', 'dem_path',
         'warm_up_date', 'end_date', 'utm_projection'
     ]
     if use_random_forest:
         required_keys.append('RF_model_path')
+    if use_snow17:
+        required_keys.append('swe_output_path')
 
     for key in required_keys:
         value = config[key]
@@ -444,6 +450,8 @@ def main():
         def build_file_map(var, folder):
             """Build dictionary mapping dates to file paths"""
             file_map = {}
+            if not folder or not os.path.isdir(folder):
+                return file_map
             for f in glob(os.path.join(folder, f"{var}*.tif")):
                 name = os.path.basename(f)
                 parts = name.split(".")
@@ -462,7 +470,7 @@ def main():
             'infiltration': build_file_map('infiltration', crest_output),
             'sm': build_file_map('sm', crest_output),
             'rainmelt': build_file_map('rainmelt', rainmelt_output),
-            'swe': build_file_map('swe', swe_output)
+            'swe': build_file_map('swe', swe_output) if config['use_snow17'] else {}
         }
         
         # Filter all file maps by date range [start_date, end_date]
@@ -486,6 +494,7 @@ def main():
         
         model_count = 3 if config['use_random_forest'] else 1
         print(f"  Landslide ({len(common_dates)} dates × {model_count} models)...")
+        print(f"  Infinite Slope SWE effect: {'enabled' if config['use_snow17'] else 'disabled'}")
         
         # Process each date
         count_processed = 0
@@ -499,7 +508,7 @@ def main():
                 
                 # Load SWE from SNOW17 if available
                 swe = np.zeros_like(sm)
-                if 'swe' in file_maps and file_maps['swe'] and date in file_maps['swe']:
+                if config['use_snow17'] and 'swe' in file_maps and file_maps['swe'] and date in file_maps['swe']:
                     try:
                         swe = reproject_to_match(file_maps['swe'][date], ref_profile)
                     except Exception:
@@ -513,7 +522,7 @@ def main():
                     slope_array, soil_depth, porosity, Ks,
                     tanphi_mean, tanphi_sd, C_soil_mean + Cr_lulc_mean,
                     C_soil_sd, C_lulc_sd, unc_unstable,
-                    use_swe=True  # Enable SWE effect
+                    use_swe=config['use_snow17']
                 )
 
                 save_raster(phys_raster, config['landslide_output_path'], f"PoF_InfiniteSlope_{date}.tif", ref_profile)

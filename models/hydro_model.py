@@ -11,6 +11,11 @@ import shutil
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+try:
+    from models.config import env_bool
+except ImportError:
+    from config import env_bool
+
 
 def load_config():
     """Load all configuration from .env file"""
@@ -18,22 +23,51 @@ def load_config():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env_path = os.path.join(project_root, '.env')
     load_dotenv(env_path)
+
+    use_snow17 = env_bool('use_snow17', True)
     
     config = {
         'CREST_exe_path': os.getenv('CREST_exe_path'),
         'CREST_output_path': os.getenv('CREST_output_path'),
+        'rain_path': os.getenv('rain_path'),
+        'rainmelt_output_path': os.getenv('rainmelt_output_path'),
+        'pet_path': os.getenv('pet_path') or os.getenv('pet_output_path') or 'CREST/pet',
         'start_date': os.getenv('start_date'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
         'time_state': os.getenv('time_state'),
+        'use_snow17': use_snow17,
     }
     
     # Validate required variables
-    for key, value in config.items():
+    required_keys = [
+        'CREST_exe_path', 'CREST_output_path', 'pet_path',
+        'start_date', 'warm_up_date', 'end_date', 'time_state'
+    ]
+    required_keys.append('rainmelt_output_path' if use_snow17 else 'rain_path')
+
+    for key in required_keys:
+        value = config[key]
         if not value:
             raise ValueError(f"Missing environment variable: {key}")
     
     return config
+
+
+def path_for_crest_control(path, project_root, crest_dir):
+    """Convert a project path to the relative path CREST expects in control.txt."""
+    if os.path.isabs(path):
+        abs_path = path
+    else:
+        abs_path = os.path.abspath(os.path.join(project_root, path))
+    return os.path.relpath(abs_path, crest_dir)
+
+
+def validate_tif_folder(folder, description):
+    if not os.path.isdir(folder):
+        raise FileNotFoundError(f"{description} folder not found: {folder}")
+    if not any(name.endswith('.tif') for name in os.listdir(folder)):
+        raise FileNotFoundError(f"No GeoTIFF files found in {description} folder: {folder}")
 
 
 def format_crest_date(date_str):
@@ -268,7 +302,9 @@ def fix_crest_date_formats(crest_output_dir, processing_date=None):
             shutil.rmtree(temp_dir)
 
 
-def modify_control_file(control_path, start_date, warm_up_date, end_date, time_state):
+def modify_control_file(
+        control_path, start_date, warm_up_date, end_date, time_state,
+        precip_loc=None, precip_name=None, pet_loc=None, pet_name=None):
     """
     Modify CREST control.txt file with new time parameters
     
@@ -292,9 +328,19 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date, time_s
     with open(control_path, 'r') as f:
         lines = f.readlines()
     
-    # Modify time parameters
+    forcing_updates = {
+        '[PrecipForcing RAIN]': {'LOC': precip_loc, 'NAME': precip_name},
+        '[PETForcing PET]': {'LOC': pet_loc, 'NAME': pet_name},
+    }
+
+    # Modify time parameters and forcing paths
     modified_lines = []
+    current_section = None
     for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('[') and stripped.endswith(']'):
+            current_section = stripped
+
         if line.startswith('TIME_BEGIN='):
             modified_lines.append(f'TIME_BEGIN={time_begin}\n')
         elif line.startswith('TIME_WARMEND='):
@@ -303,6 +349,10 @@ def modify_control_file(control_path, start_date, warm_up_date, end_date, time_s
             modified_lines.append(f'TIME_END={time_end}\n')
         elif line.startswith('TIME_STATE='):
             modified_lines.append(f'TIME_STATE={time_state_formatted}\n')
+        elif current_section in forcing_updates and line.startswith('LOC=') and forcing_updates[current_section]['LOC']:
+            modified_lines.append(f"LOC={forcing_updates[current_section]['LOC']}\n")
+        elif current_section in forcing_updates and line.startswith('NAME=') and forcing_updates[current_section]['NAME']:
+            modified_lines.append(f"NAME={forcing_updates[current_section]['NAME']}\n")
         else:
             modified_lines.append(line)
     
@@ -332,10 +382,10 @@ def run_crest_model(show_output=False):
     
     # Get CREST paths
     crest_exe = config['CREST_exe_path']
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     # Use absolute path
     if not os.path.isabs(crest_exe):
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         crest_exe = os.path.join(project_root, crest_exe)
     
     if not os.path.exists(crest_exe):
@@ -346,6 +396,17 @@ def run_crest_model(show_output=False):
     
     crest_dir = os.path.dirname(crest_exe)
     control_path = os.path.join(crest_dir, "control.txt")
+    precip_path = config['rainmelt_output_path'] if config['use_snow17'] else config['rain_path']
+    precip_name = 'rainmelt.YYYYMMDD.tif' if config['use_snow17'] else 'rain.YYYYMMDD.tif'
+    pet_name = os.getenv('pet_name_template') or 'pet.YYYYMMDD.tif'
+
+    precip_abs = os.path.abspath(os.path.join(project_root, precip_path))
+    pet_abs = os.path.abspath(os.path.join(project_root, config['pet_path']))
+    validate_tif_folder(precip_abs, 'precipitation forcing')
+    validate_tif_folder(pet_abs, 'PET forcing')
+
+    precip_loc = path_for_crest_control(precip_path, project_root, crest_dir)
+    pet_loc = path_for_crest_control(config['pet_path'], project_root, crest_dir)
     
     # Create output directories
     output_dir = os.path.join(crest_dir, "output")
@@ -354,6 +415,8 @@ def run_crest_model(show_output=False):
     os.makedirs(states_dir, exist_ok=True)
     
     print(f"  CREST (executing model)...")
+    print(f"  CREST precipitation forcing: {precip_path} ({precip_name})")
+    print(f"  CREST PET forcing: {config['pet_path']} ({pet_name})")
     
     # Step 1: Modify control file with dates from .env
     modify_control_file(
@@ -361,7 +424,11 @@ def run_crest_model(show_output=False):
         config['start_date'],
         config['warm_up_date'],
         config['end_date'],
-        config['time_state']
+        config['time_state'],
+        precip_loc=precip_loc,
+        precip_name=precip_name,
+        pet_loc=pet_loc,
+        pet_name=pet_name
     )
     
     # Step 2: Execute CREST

@@ -10,6 +10,7 @@ import sys
 from dotenv import load_dotenv
 from datetime import datetime
 import models
+from models.config import env_bool
 
 
 def main():
@@ -30,12 +31,15 @@ def main():
         'end_date': os.getenv('end_date'),
         'time_state': os.getenv('time_state'),
         'rain_output_path': os.getenv('rain_output_path'),
-        'tavg_output_path': os.getenv('tavg_output_path'),
-        'pet_output_path': os.getenv('pet_output_path'),
+        'rain_path': os.getenv('rain_path'),
+        'tavg_path': os.getenv('tavg_path'),
+        'pet_path': os.getenv('pet_path') or os.getenv('pet_output_path'),
         'swe_output_path': os.getenv('swe_output_path'),
         'rainmelt_output_path': os.getenv('rainmelt_output_path'),
         'CREST_output_path': os.getenv('CREST_output_path'),
         'landslide_output_path': os.getenv('landslide_output_path'),
+        'use_snow17': env_bool('use_snow17', True),
+        'use_random_forest': env_bool('use_random_forest', True),
     }
 
     for key in ['start_date', 'warm_up_date', 'end_date']:
@@ -46,13 +50,18 @@ def main():
     print(f"\nConfiguration: {config['start_date']} -> {config['end_date']}")
     print(f"Warm-up date: {config['warm_up_date']}\n")
     print(f"State date in hydrological model: {config['time_state']}\n")
+    print(f"SNOW17: {'enabled' if config['use_snow17'] else 'disabled'}")
+    print(f"Random Forest: {'enabled' if config['use_random_forest'] else 'disabled'}\n")
 
     start_time = datetime.now()
 
     # Run pipeline using models package entry points
     try:
-        print("\n[RUNNING] SNOW17")
-        models.run_snow17()
+        if config['use_snow17']:
+            print("\n[RUNNING] SNOW17")
+            models.run_snow17()
+        else:
+            print("\n[SKIPPING] SNOW17 disabled; CREST will use precipitation directly")
         print("\n[RUNNING] CREST")
         models.run_crest_model()
         print("\n[RUNNING] Landslide")

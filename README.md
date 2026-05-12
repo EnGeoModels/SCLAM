@@ -86,6 +86,7 @@ The system is fully configured through the `.env` file. Copy the example file an
 dem_path=CREST/basic/DEM.asc
 rain_path=rain
 tavg_path=tavg
+pet_path=CREST/pet
 
 # Output paths
 rainmelt_output_path=CREST/rainmelt
@@ -105,6 +106,7 @@ time_state=2013-06-01
 
 # Trained model
 RF_model_path=RF_model.pkl
+use_snow17=true
 use_random_forest=true
 static_data_path=static
 ```
@@ -118,7 +120,7 @@ Precipitation and temperature can be in **GeoTIFF** format with:
 - **Units**: Precipitation (mm/day), Temperature (°C)
 - **Naming format**: `rain.YYYYMMDD.tif` and `tavg.YYYYMMDD.tif`
 
-Portential evapotranspiration is desirable, specially for long term runs. We suggest to estimate it based on Hargreaves-Samani equation (only requires temperature).
+Potential evapotranspiration is desirable, especially for long-term runs. You can provide already processed PET rasters in `pet_path` using the format `pet.YYYYMMDD.tif`; in that case CREST uses the PET folder directly.
 
 ### Digital Elevation Model (DEM), Flow Direction (FDR) and Flow Accumulation (FAC)
 
@@ -133,6 +135,14 @@ Portential evapotranspiration is desirable, specially for long term runs. We sug
 ### Random Forest Model
 - **File**: `RF_model.pkl` (pre-trained)
 - To run landslide prediction using only the Infinite Slope model, set `use_random_forest=false` in `.env`.
+
+### Optional SNOW17 and Random Forest
+
+- `use_snow17=true`: runs SNOW17, uses `rain_path` + `tavg_path`, writes `rainmelt_output_path` and `swe_output_path`, and CREST uses rain+melt as precipitation forcing.
+- `use_snow17=false`: skips SNOW17, does not require `tavg_path`, and CREST uses `rain_path` directly as precipitation forcing.
+- `use_random_forest=true`: runs Random Forest and writes RF plus ensemble landslide outputs.
+- `use_random_forest=false`: runs only the Infinite Slope landslide model.
+- If both `use_snow17=false` and `use_random_forest=false`, the pipeline is CREST + Infinite Slope. Provide processed PET in `pet_path` so CREST can run without temperature data.
 
 ## SCLAM Usage
 
