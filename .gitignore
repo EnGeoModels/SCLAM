@@ -16,3 +16,5 @@ tavg/
 models/preprocessing.py
 swe/
 .codex
+static/
+stats/

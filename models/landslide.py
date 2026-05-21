@@ -26,6 +26,23 @@ G = 9.81
 DW = 1000
 DS = 2000
 
+def parse_float_vector(name, expected_length):
+    """Read a comma-separated float vector from an environment variable."""
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"Missing environment variable: {name}")
+
+    try:
+        vector = [float(item.strip()) for item in value.split(",")]
+    except ValueError as exc:
+        raise ValueError(f"{name} must contain numeric values separated by commas") from exc
+
+    if len(vector) != expected_length:
+        raise ValueError(f"{name} must contain exactly {expected_length} values")
+
+    return vector
+
+
 def ensure_directory(path):
     """
     Ensures that a directory exists and is actually a directory.
@@ -50,6 +67,8 @@ def load_config():
 
     use_random_forest = env_bool('use_random_forest', True)
     use_snow17 = env_bool('use_snow17', True)
+    use_unc_unstable = env_bool('use_unc_unstable', True)
+    landslide_calibration_vector = parse_float_vector('landslide_calibration_vector', 9)
     
     config = {
         'CREST_output_path': os.getenv('CREST_output_path'),
@@ -59,11 +78,22 @@ def load_config():
         'RF_model_path': os.getenv('RF_model_path'),
         'use_random_forest': use_random_forest,
         'use_snow17': use_snow17,
+        'use_unc_unstable': use_unc_unstable,
         'landslide_output_path': os.getenv('landslide_output_path'),
         'dem_path': os.getenv('dem_path'),
         'warm_up_date': os.getenv('warm_up_date'),
         'end_date': os.getenv('end_date'),
         'utm_projection': os.getenv('utm_projection'),
+        'static_cumflow_file': os.getenv('static_cumflow_file', 'cumflow.tif'),
+        'static_ks_file': os.getenv('static_ks_file', 'Ks.tif'),
+        'static_slopes_file': os.getenv('static_slopes_file', 'slopes.tif'),
+        'static_z_file': os.getenv('static_z_file', 'z.tif'),
+        'static_soil_grid_file': os.getenv('static_soil_grid_file', 'soil_grid_30m.tif'),
+        'static_hmtu_grid_file': os.getenv('static_hmtu_grid_file', 'hmtu_grid_30m.tif'),
+        'static_soil_csv_file': os.getenv('static_soil_csv_file', 'soil.csv'),
+        'static_hmtu_csv_file': os.getenv('static_hmtu_csv_file', 'hmtu.csv'),
+        'static_unc_unstable_file': os.getenv('static_unc_unstable_file', 'unc_unstable.tif'),
+        'landslide_calibration_vector': landslide_calibration_vector,
     }
     
     # Validate required variables
@@ -358,6 +388,9 @@ def main():
         rf_model = None
         sta_layers = {}
 
+        def static_path(filename_key):
+            return os.path.join(config['static_data_path'], config[filename_key])
+
         if config['use_random_forest']:
             # Load RF model
             if not os.path.exists(config['RF_model_path']):
@@ -366,18 +399,23 @@ def main():
             rf_model = joblib.load(config['RF_model_path'])
             
             # Load static layers for RF
-            static_vars = ['cumflow', 'Ks', 'slopes', 'z']
+            static_vars = {
+                'cumflow': 'static_cumflow_file',
+                'Ks': 'static_ks_file',
+                'slopes': 'static_slopes_file',
+                'z': 'static_z_file',
+            }
             
-            for var in static_vars:
-                path = os.path.join(config['static_data_path'], f"{var}.tif")
+            for var, filename_key in static_vars.items():
+                path = static_path(filename_key)
                 if not os.path.exists(path):
                     continue
                 arr = reproject_to_match(path, ref_profile)
                 sta_layers[var] = arr
         
         # Load soil and land use data
-        soil_path = os.path.join(config['static_data_path'], 'soil_grid_30m.tif')
-        hmtu_path = os.path.join(config['static_data_path'], 'hmtu_grid_30m.tif')
+        soil_path = static_path('static_soil_grid_file')
+        hmtu_path = static_path('static_hmtu_grid_file')
 
         if not os.path.exists(soil_path):
             raise FileNotFoundError(f"Soil file not found: {soil_path}")
@@ -388,8 +426,8 @@ def main():
         hmtu_grid = reproject_to_match(hmtu_path, ref_profile)
         
         # Load soil and HMTU parameters from CSV
-        soil_csv_path = os.path.join(config['static_data_path'], 'soil.csv')
-        hmtu_csv_path = os.path.join(config['static_data_path'], 'hmtu.csv')
+        soil_csv_path = static_path('static_soil_csv_file')
+        hmtu_csv_path = static_path('static_hmtu_csv_file')
         
         if not os.path.exists(soil_csv_path):
             raise FileNotFoundError(f"Soil CSV not found: {soil_csv_path}")
@@ -402,7 +440,7 @@ def main():
         hmtu['index'] = hmtu['index'].astype(int)
         
         # Calibration parameters
-        x = [0.824, 0.955, -4.968, -4.872, 1.000, 0.000, 1.000, 0.894, 0.000]
+        x = config['landslide_calibration_vector']
         
         # Create parameter grids
         soil_dicts = {
@@ -436,11 +474,19 @@ def main():
         C_lulc_sd = (Cr_max - Cr_min) / 4
         
         # Load other static grids
-        slope_path = os.path.join(config['static_data_path'], 'slopes.tif')
-        unc_unstable_path = os.path.join(config['static_data_path'], 'unc_unstable.tif')
+        slope_path = static_path('static_slopes_file')
         
         slope_array = reproject_to_match(slope_path, ref_profile)
-        unc_unstable = reproject_to_match(unc_unstable_path, ref_profile)
+        if config['use_unc_unstable']:
+            unc_unstable_path = static_path('static_unc_unstable_file')
+            if not os.path.exists(unc_unstable_path):
+                raise FileNotFoundError(f"Unstable uncertainty file not found: {unc_unstable_path}")
+            unc_unstable = reproject_to_match(unc_unstable_path, ref_profile)
+        else:
+            unc_unstable = np.zeros(
+                (ref_profile['height'], ref_profile['width']),
+                dtype=np.float32
+            )
         
         # Build file maps for dynamic inputs from CREST
         crest_output = config['CREST_output_path']
@@ -495,6 +541,7 @@ def main():
         model_count = 3 if config['use_random_forest'] else 1
         print(f"  Landslide ({len(common_dates)} dates × {model_count} models)...")
         print(f"  Infinite Slope SWE effect: {'enabled' if config['use_snow17'] else 'disabled'}")
+        print(f"  Unstable uncertainty mask: {'enabled' if config['use_unc_unstable'] else 'disabled'}")
         
         # Process each date
         count_processed = 0
@@ -525,7 +572,14 @@ def main():
                     use_swe=config['use_snow17']
                 )
 
-                save_raster(phys_raster, config['landslide_output_path'], f"PoF_InfiniteSlope_{date}.tif", ref_profile)
+                saved_files = [
+                    save_raster(
+                        phys_raster,
+                        config['landslide_output_path'],
+                        f"PoF_InfiniteSlope_{date}.tif",
+                        ref_profile
+                    )
+                ]
 
                 if config['use_random_forest']:
                     # Run RF model
@@ -543,14 +597,32 @@ def main():
                     only_rf_valid = valid_mask & ~np.isnan(rf_raster) & np.isnan(phys_raster)
                     mean_raster[only_rf_valid] = rf_raster[only_rf_valid]
                     
-                    save_raster(rf_raster, config['landslide_output_path'], f"PoF_RF_{date}.tif", ref_profile)
-                    save_raster(mean_raster, config['landslide_output_path'], f"PoF_Ensemble_{date}.tif", ref_profile)
+                    saved_files.append(
+                        save_raster(
+                            rf_raster,
+                            config['landslide_output_path'],
+                            f"PoF_RF_{date}.tif",
+                            ref_profile
+                        )
+                    )
+                    saved_files.append(
+                        save_raster(
+                            mean_raster,
+                            config['landslide_output_path'],
+                            f"PoF_Ensemble_{date}.tif",
+                            ref_profile
+                        )
+                    )
                 
                 count_processed += 1
+                saved_names = ", ".join(os.path.basename(path) for path in saved_files)
+                print(f"  [{idx}/{len(common_dates)}] saved {saved_names}")
             
             except Exception as e:
+                print(f"  [{idx}/{len(common_dates)}] skipped {date}: {e}")
                 continue
         
+        print(f"  Landslide completed: {count_processed}/{len(common_dates)} dates processed")
         return config['landslide_output_path']
     
     except Exception as e:

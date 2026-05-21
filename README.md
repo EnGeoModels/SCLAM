@@ -106,9 +106,27 @@ time_state=2013-06-01
 
 # Trained model
 RF_model_path=RF_model.pkl
-use_snow17=true
-use_random_forest=true
+
+# Model switches
+use_snow17=false
+use_random_forest=false
+use_unc_unstable=false
+
+# Infinite slope calibration vector:
+# [Cmax_mult, Cr_max_mult, phimin_add, phimax_add, qa_mult, h_add, qe_mult, Ks_mult, nf_add]
+landslide_calibration_vector=1,1,0,0,1.000,0.000,1.000,1,0.000
+
+# Static landslide inputs
 static_data_path=static
+static_cumflow_file=cumflow.tif
+static_ks_file=Ks.tif
+static_slopes_file=slopes.tif
+static_z_file=z.tif
+static_soil_grid_file=soil_grid_30m.tif
+static_hmtu_grid_file=hmtu_grid_30m.tif
+static_soil_csv_file=soil.csv
+static_hmtu_csv_file=hmtu.csv
+static_unc_unstable_file=unc_unstable.tif
 ```
 ## Input Data
 
